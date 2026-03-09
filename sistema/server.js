@@ -11,6 +11,19 @@ const PORT = 3000;
 
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
+
+// Middleware para diferenciar domínios: zottelli.com.br (Site) vs sistema.zottelli.com.br (Sistema)
+app.get('/', (req, res, next) => {
+    const host = req.headers.host || '';
+    if (host.includes('sistema.')) {
+        return res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    }
+    if (host.includes('zottelli.com.br')) {
+        return res.sendFile(path.join(__dirname, 'public', 'site.html'));
+    }
+    next();
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
