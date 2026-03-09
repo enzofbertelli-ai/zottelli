@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerador de Contratos | Zottelli Selection</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="style.css" rel="stylesheet">
+
+    <script src="https://unpkg.com/imask"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
+
+    <script>
+        const _u = JSON.parse(sessionStorage.getItem('usuarioLogado') || 'null');
+        if (!_u) window.location.href = '/login.html';
+        function sair() { sessionStorage.removeItem('usuarioLogado'); window.location.href = '/login.html'; }
+    </script>
+
+    <style>
+        .section-title { font-size: 0.85rem; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 8px; font-weight: bold; }
+        .box-troca { background-color: var(--bg3); padding: 15px; border-radius: 8px; border: 1px dashed var(--border); margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <a href="index.html" class="brand-logo">ZOTTELLI<span style="color:var(--accent);">.</span></a>
+        <ul class="nav flex-column mt-2" id="sidebarNav"></ul>
+    </div>
+
+    <div class="main-content">
+        <div class="card p-4">
+            <h4 class="mb-4 text-white">Novo Contrato de Compra e Venda</h4>
+
+            <form id="formContrato">
+                <div class="section-title mt-2">Dados da Loja (Vendedor)</div>
+                <div class="row mb-4">
+                    <div class="col-md-8">
+                        <label class="form-label text-muted">Razão Social</label>
+                        <select class="form-select" id="razaoSocial" onchange="atualizarCNPJ()">
+                            <option value="" selected disabled>Selecione a empresa faturadora...</option>
+                            <option value="jonas">JONAS RICIERE FERREIRA ZOTTIS LTDA</option>
+                            <option value="enzo">ENZO FERNANDES BERTELLI LTDA</option>
+                            <option value="vier">VIER GROUP CONSULTORIA LTDA</option>
+                            <option value="patrick">PATRICK NÍQUEL VIER LTDA</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label text-muted">CNPJ</label>
+                        <input type="text" class="form-control" id="cnpjLoja" readonly placeholder="Selecionado automaticamente">
+                    </div>
+                </div>
+
+                <div class="section-title">Dados do Comprador</div>
+                <div class="row mb-4">
+                    <div class="col-md-8">
+                        <label class="form-label text-muted">Nome Completo</label>
+                        <input type="text" class="form-control" id="nomeComprador" placeholder="Ex: João da Silva" style="text-transform: uppercase;">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label text-muted">CPF / CNPJ</label>
+                        <input type="text" class="form-control" id="cpfCnpjComprador" placeholder="000.000.000-00">
+                    </div>
+                </div>
+
+                <div class="section-title">Dados do Veículo (Objeto da Venda)</div>
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label text-muted">Marca</label>
+                        <input type="text" class="form-control" id="marcaVeiculo" style="text-transform: uppercase;">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label text-muted">Modelo</label>
+                        <input type="text" class="form-control" id="modeloVeiculo" style="text-transform: uppercase;">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label text-muted">Ano (Fab/Mod)</label>
+                        <input type="text" class="form-control" id="anoVeiculo" placeholder="0000/0000">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label text-muted">Cor</label>
+                        <input type="text" class="form-control" id="corVeiculo" style="text-transform: uppercase;">
+                    </div>
+                </div>
+                <div class="row mb-4">
+                    <div class="col-md-4">
+                        <label class="form-label text-muted">Placa</label>
+                        <input type="text" class="form-control" id="placaVeiculo" placeholder="ABC1D23" style="text-transform: uppercase;">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label text-muted">RENAVAM</label>
+                        <input type="text" class="form-control" id="renavamVeiculo" placeholder="Apenas números">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label text-muted">Valor Negociado (R$)</label>
+                        <input type="text" class="form-control" id="valorTotal" placeholder="R$ 0,00">
+                    </div>
+                </div>
+
+                <div class="section-title">Prazos e Datas</div>
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label text-muted">Data da Venda</label>
+                        <input type="date" class="form-control" id="dataVenda" onchange="calcularDataEntrega()">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted">Data Máxima p/ Entrega de Documentação</label>
+                        <input type="date" class="form-control" id="dataEntrega">
+                    </div>
+                </div>
+
+                <div class="section-title">Formas de Pagamento</div>
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label text-muted">Quantidade de Pagamentos</label>
+                        <select class="form-select" id="qtdMetodosPagamento" onchange="gerarCamposPagamento()">
+                            <option value="0" selected>Selecione...</option>
+                            <option value="1">1 Pagamento</option>
+                            <option value="2">2 Pagamentos</option>
+                            <option value="3">3 Pagamentos</option>
+                            <option value="4">4 Pagamentos</option>
+                            <option value="5">5 Pagamentos</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="containerPagamentos" class="mb-4"></div>
+
+                <div class="d-flex justify-content-end gap-3 mt-5 pt-3 border-top border-secondary">
+                    <button type="button" class="btn btn-danger btn-lg" onclick="gerarPDF()">
+                        <i class="bi bi-file-pdf me-2"></i> Salvar PDF
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-lg" onclick="imprimirPDF()">
+                        <i class="bi bi-printer me-2"></i> Imprimir
+                    </button>
+                    <button type="button" class="btn btn-success btn-lg" onclick="enviarWhatsApp()">
+                        <i class="bi bi-whatsapp me-2"></i> WhatsApp
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="sidebar.js"></script>
+    <script>
+        buildSidebar('contratos.html');
+
+        const cnpjs = {
+            "jonas": "36.713.475/0001-72", "enzo": "54.340.855/0001-90",
+            "vier": "94.302.320/0001-40", "patrick": "54.537.264/0001-08"
+        };
+
+        function atualizarCNPJ() {
+            const select = document.getElementById('razaoSocial');
+            document.getElementById('cnpjLoja').value = cnpjs[select.value] || '';
+        }
+
+        function calcularDataEntrega() {
+            const dataVendaInput = document.getElementById('dataVenda').value;
+            if(dataVendaInput) {
+                const data = new Date(dataVendaInput + 'T12:00:00Z');
+                data.setDate(data.getDate() + 30);
+                document.getElementById('dataEntrega').value = data.toISOString().split('T')[0];
+            }
+        }
+
+        function aplicarMascarasIniciais() {
+            IMask(document.getElementById('cpfCnpjComprador'), { mask: [ {mask: '000.000.000-00'}, {mask: '00.000.000/0001-00'} ] });
+            IMask(document.getElementById('anoVeiculo'), { mask: '0000/0000' });
+            IMask(document.getElementById('renavamVeiculo'), { mask: '00000000000' });
+            IMask(document.getElementById('valorTotal'), { mask: 'R$ num', blocks: { num: { mask: Number, thousandsSeparator: '.', padFractionalZeros: true, radix: ',' } } });
+        }
+        document.addEventListener("DOMContentLoaded", aplicarMascarasIniciais);
+
+        function gerarCamposPagamento() {
+            const quantidade = document.getElementById('qtdMetodosPagamento').value;
+            const container = document.getElementById('containerPagamentos');
+            container.innerHTML = '';
+
+            for (let i = 1; i <= quantidade; i++) {
+                const div = document.createElement('div');
+                div.className = 'row mb-3 align-items-center';
+                div.innerHTML = `
+                    <div class="col-md-4">
+                        <label class="form-label text-muted">Método ${i}</label>
+                        <select class="form-select" id="tipoMetodo_${i}" onchange="verificarTroca(this, ${i})">
+                            <option value="PIX">PIX</option><option value="TED">TED</option>
+                            <option value="CONSÓRCIO">Consórcio</option><option value="FINANCIAMENTO">Financiamento</option>
+                            <option value="VEÍCULO NA TROCA">Veículo na Troca</option><option value="CRIPTOMOEDAS">Criptomoedas</option>
+                            <option value="CARTÃO DE CRÉDITO">Cartão de Crédito</option><option value="EM ESPÉCIE">Em Espécie</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label text-muted">Valor (R$)</label>
+                        <input type="text" class="form-control mascara-dinheiro" id="valorMetodo_${i}" placeholder="R$ 0,00">
+                    </div>
+                    <div class="col-md-5">
+                        <label class="form-label text-muted">Detalhes / Observações</label>
+                        <input type="text" class="form-control" id="obsMetodo_${i}" placeholder="Ex: Banco Santander...">
+                    </div>
+                    <div class="col-md-12" id="box-troca-${i}" style="display: none;">
+                        <div class="box-troca mt-2 row g-2">
+                            <div class="col-12"><strong class="text-warning"><i class="bi bi-car-front"></i> Dados do Veículo na Troca</strong></div>
+                            <div class="col-md-3"><input type="text" id="marcaTroca_${i}" class="form-control form-control-sm" placeholder="Marca (Ex: Fiat)"></div>
+                            <div class="col-md-3"><input type="text" id="modeloTroca_${i}" class="form-control form-control-sm" placeholder="Modelo (Ex: Toro)"></div>
+                            <div class="col-md-2"><input type="text" id="anoTroca_${i}" class="form-control form-control-sm mascara-ano" placeholder="Ano (0000/0000)"></div>
+                            <div class="col-md-2"><input type="text" id="placaTroca_${i}" class="form-control form-control-sm" placeholder="Placa" style="text-transform:uppercase"></div>
+                            <div class="col-md-2"><input type="text" id="renavamTroca_${i}" class="form-control form-control-sm mascara-renavam" placeholder="RENAVAM"></div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(div);
+            }
+
+            document.querySelectorAll('.mascara-dinheiro').forEach(el => { IMask(el, { mask: 'R$ num', blocks: { num: { mask: Number, thousandsSeparator: '.', padFractionalZeros: true, radix: ',' } } }); });
+            document.querySelectorAll('.mascara-ano').forEach(el => { IMask(el, { mask: '0000/0000' }); });
+            document.querySelectorAll('.mascara-renavam').forEach(el => { IMask(el, { mask: '00000000000' }); });
+        }
+
+        function verificarTroca(selectElement, id) {
+            const boxTroca = document.getElementById(`box-troca-${id}`);
+            boxTroca.style.display = (selectElement.value === 'VEÍCULO NA TROCA') ? 'block' : 'none';
+        }
+
+        // ==========================================
+        // MOTOR DO PDF (GERAÇÃO, IMPRESSÃO E WHATSAPP)
+        // ==========================================
+
+        function getDocDefinition() {
+            const b64_svg = `PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4NCjxzdmcgZGF0YS1iYm94PSIwIDAgMjkyLjcgMTYzLjciIHZpZXdCb3g9IjAgMCAyOTIuNyAxNjMuNyIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiBkYXRhLXR5cGU9ImNvbG9yIj4KICAgIDxnPgogICAgICAgIDxwYXRoIGQ9Ik0yNDkuMyAyaC05OS43Yy01LjcgMC0xMS4zIDIuMS0xNS41IDZMNzAuNiA2NS42IDcxLjEgMkg1OS42Yy0xMC4yIDAtMTguNCA4LjItMTguNCAxOC40bC0uMSA2My4yaDI4LjhsODEuOC03NC4yaDQ2LjFsLTgyLjIgNzQuMmgxMjAuM2M0LjEgMCA3LjUtMy4zIDcuNS03LjVoLTc2LjFsODItNzQuMXoiIGZpbGw9IiMxZDFkMWIiIGRhdGEtY29sb3I9IjEiLz4KICAgICAgICA8cGF0aCBkPSJNMjM1LjkgODUuNkgxMTAuNGw4Mi4yLTc0LjJoLTQwLjJMNzAuNyA4NS42SDM5LjFsLjEtNjUuMkMzOS4yIDkuMSA0OC40IDAgNTkuNiAwaDEzLjVsLS41IDYxLjEgNjAuMS01NC42YzQuNi00LjIgMTAuNi02LjUgMTYuOS02LjVoMTA0LjlsLTgyIDc0LjFoNzIuOXYyYzAgNS4yLTQuMyA5LjUtOS41IDkuNXptLTExNS4xLTRoMTE1LjFjMi4zIDAgNC4zLTEuNCA1LjEtMy41aC03OC45bDgyLTc0LjFoLTk0LjVjLTUuMyAwLTEwLjMgMS45LTE0LjIgNS41TDY4LjYgNzAuMiA2OS4xIDRoLTkuNWMtOSAwLTE2LjQgNy40LTE2LjQgMTYuNGwtLjEgNjEuMmgyNmw4MS44LTc0LjJIMjAzbC04Mi4yIDc0LjJ6IiBmaWxsPSIjMWQxZDFiIiBkYXRhLWNvbG9yPSIxIi8+CiAgICAgICAgPHBhdGggZD0iTTU0LjMgMTIyLjZ2NDAuMkg0NVYxMzFsLTEzLjUgMzEuOGgtOC44TDkuMyAxMzF2MzEuOEgwdi00MC4yaDE0LjRsMTIuNyAzMC45IDEyLjgtMzAuOWgxNC40eiIgZmlsbD0iIzFkMWQxYiIgZGF0YS1jb2xvcj0iMSIvPgogICAgICAgIDxwYXRoIGQ9Ik0xMDguMSAxNDIuN2MwIDE1LjQtMTIuNCAyMS0yNCAyMXMtMjQtNS42LTI0LTIxIDEyLjQtMjAuOSAyNC0yMC45IDI0IDUuNSAyNCAyMC45em0tOS40IDBjMC03LjktNC41LTEzLjktMTQuNS0xMy45cy0xNC41IDYtMTQuNSAxMy45IDQuNSAxNCAxNC41IDE0IDE0LjUtNi4xIDE0LjUtMTR6IiBmaWxsPSIjMWQxZDFiIiBkYXRhLWNvbG9yPSIxIi8+CiAgICAgICAgPHBhdGggZD0iTTE0OS41IDEyOS43aC0xNS4ydjMzLjFIMTI1di0zMy4xaC0xNS4ydi03LjFoMzkuN3Y3LjF6IiBmaWxsPSIjMWQxZDFiIiBkYXRhLWNvbG9yPSIxIi8+CiAgICAgICAgPHBhdGggZD0iTTE5OS4zIDE0Mi43YzAgMTUuNC0xMi40IDIxLTI0IDIxcy0yNC01LjYtMjQtMjEgMTIuNC0yMC45IDI0LTIwLjkgMjQgNS41IDI0IDIwLjl6bS05LjUgMGMwLTcuOS00LjUtMTMuOS0xNC41LTEzLjlzLTE0LjUgNi0xNC41IDEzLjkgNC41IDE0IDE0LjUgMTQgMTQuNS02LjEgMTQuNS0xNHoiIGZpbGw9IiMxZDFkMWIiIGRhdGEtY29sb3I9IjEiLz4KICAgICAgICA8cGF0aCBkPSJtMjM3LjQgMTYyLjgtOC41LTEzLjZoLTE0LjZ2MTMuNkgyMDV2LTQwLjJoMjQuOGMxMC45IDAgMTYuNiA1LjIgMTYuNiAxMy4zIDAgNi4zLTMgMTAuMS04LjMgMTJsOS42IDE0LjloLTEwLjN6bS0yMy4xLTIwLjZoMTUuMmM1LjYgMCA3LjUtMi45IDcuNS02LjNzLTEuNy02LjItNy41LTYuMmgtMTUuMnYxMi41eiIgZmlsbD0iIzFkMWQxYiIgZGF0YS1jb2xvcj0iMSIvPgogICAgICAgIDxwYXRoIGQ9Ik0yOTIuNyAxNTAuM2MwIDguNy03LjIgMTMuNC0yMS41IDEzLjQtMTMuOSAwLTIxLjItNS4yLTIxLjItMTMuNGg5LjdjLjIgNC4yIDUuMSA2LjMgMTIuNCA2LjMgNy42IDAgMTAuOS0yIDEwLjktNS4xIDAtNC4xLTYuMi0zLjctMTcuMi01LjYtMTEtMS44LTE0LjQtNS4yLTE0LjQtMTEuNSAwLTYuNiA0LjUtMTIuNyAxOS4zLTEyLjcgMTQuMiAwIDE5LjcgNS40IDIwIDEyLjVoLTljLS4zLTIuOS0zLjctNS41LTExLjEtNS41LTguMyAwLTEwLjIgMi4yLTEwLjIgNSAwIDMuOCA2LjcgNCAxMy43IDUgMTAuOSAxLjcgMTguNiAyLjYgMTguNiAxMS42eiIgZmlsbD0iIzFkMWQxYiIgZGF0YS1jb2xvcj0iMSIvPgogICAgPC9nPgo8L3N2Zz4K`;
+            const logoSvgString = window.atob(b64_svg.replace(/\s+/g, ''));
+            const logoWatermarkString = logoSvgString.replace(/fill="#1d1d1b"/g, 'fill="#e0e0e0"');
+
+            const selectRazao = document.getElementById('razaoSocial');
+            const razaoSocial = selectRazao.options[selectRazao.selectedIndex]?.text || '___________________';
+            const cnpjLoja = document.getElementById('cnpjLoja').value || '___.___.___/____-__';
+
+            const nomeComprador = (document.getElementById('nomeComprador')?.value || '').toUpperCase() || '_______________________';
+            const cpfCnpj = document.getElementById('cpfCnpjComprador')?.value || '___.___.___-__';
+
+            const marca = (document.getElementById('marcaVeiculo')?.value || '').toUpperCase() || '________';
+            const modelo = (document.getElementById('modeloVeiculo')?.value || '').toUpperCase() || '________';
+            const ano = document.getElementById('anoVeiculo')?.value || '____/____';
+            const cor = (document.getElementById('corVeiculo')?.value || '').toUpperCase() || '________';
+            const placa = (document.getElementById('placaVeiculo')?.value || '').toUpperCase() || '_______';
+            const valorTotal = document.getElementById('valorTotal')?.value || 'R$ 0,00';
+
+            const rawDataVenda = document.getElementById('dataVenda').value;
+            const dataVenda = rawDataVenda ? rawDataVenda.split('-').reverse().join('/') : '__/__/____';
+            const rawDataDoc = document.getElementById('dataEntrega').value;
+            const dataDoc = rawDataDoc ? rawDataDoc.split('-').reverse().join('/') : '__/__/____';
+
+            const qtdPagamentos = document.getElementById('qtdMetodosPagamento').value;
+            let pagamentosContrato = [];
+            let pagamentosFormulario = [];
+
+            if(qtdPagamentos == 0) {
+                pagamentosContrato.push({ text: `3.1 - ${valorTotal} a ser combinado.`, style: 'bodyContrato' });
+                pagamentosFormulario.push({ text: `1. ${valorTotal} a ser combinado.`, style: 'bodyFormulario' });
+            } else {
+                for(let i = 1; i <= qtdPagamentos; i++) {
+                    let tipo = document.getElementById(`tipoMetodo_${i}`)?.value || '';
+                    let valor = document.getElementById(`valorMetodo_${i}`)?.value || 'R$ 0,00';
+                    let obs = document.getElementById(`obsMetodo_${i}`)?.value || '';
+                    let linhaPagamento = `${valor} ${tipo}`;
+                    if(obs) linhaPagamento += ` ${obs}`;
+
+                    if(tipo === 'VEÍCULO NA TROCA') {
+                        let m = document.getElementById(`marcaTroca_${i}`)?.value || ''; let mod = document.getElementById(`modeloTroca_${i}`)?.value || '';
+                        let a = document.getElementById(`anoTroca_${i}`)?.value || ''; let p = document.getElementById(`placaTroca_${i}`)?.value || '';
+                        linhaPagamento += ` (Ref. a ${m} ${mod}, Ano ${a}, Placa ${p})`;
+                    }
+                    linhaPagamento += '.';
+
+                    pagamentosContrato.push({ text: `3.${i} - ${linhaPagamento}`, style: 'bodyContrato' });
+                    pagamentosFormulario.push({ text: `${i}. ${linhaPagamento}`, style: 'bodyFormulario' });
+                }
+            }
+
+            return {
+                pageSize: 'A4',
+                pageMargins: [ 60, 120, 60, 60 ],
+                background: function(currentPage, pageSize) {
+                    return logoWatermarkString ? {
+                        svg: logoWatermarkString,
+                        width: 450,
+                        opacity: 0.04,
+                        absolutePosition: { x: (pageSize.width - 450) / 2, y: (pageSize.height - 250) / 2 }
+                    } : null;
+                },
+
+                header: function(currentPage, pageCount) {
+                    let isFormulario = currentPage === pageCount;
+                    let titulo = isFormulario ? 'FORMULÁRIO DE RESPONSABILIDADE' : 'CONTRATO DE COMPRA E VENDA DE VEÍCULO';
+                    return {
+                        columns: [
+                            logoSvgString ? { svg: logoSvgString, width: 50 } : { text: '', width: 50 },
+                            { text: titulo, fontSize: 15, bold: true, alignment: 'center', margin: [0, 15, 0, 0] },
+                            { text: '', width: 50 }
+                        ],
+                        margin: [60, 40, 60, 0]
+                    };
+                },
+                // Marca d'água removida.
+                content: [
+                    // ===== PÁGINA 1 =====
+                    { text: [ { text: 'VENDEDOR: ', bold: true }, `${razaoSocial}, pessoa jurídica inscrita pelo CNPJ N° ${cnpjLoja}.\n`, { text: 'COMPRADOR: ', bold: true }, `${nomeComprador}, pessoa física inscrita pelo CPF N° ${cpfCnpj}.` ], style: 'bodyContrato' },
+                    { text: 'Pelo presente instrumento, as partes supracitadas têm entre si justo e contratado a venda de um veículo', style: 'bodyContrato' },
+                    { text: [ { text: 'Marca: ', bold: true }, `${marca}; `, { text: 'Modelo: ', bold: true }, `${modelo};\n`, { text: 'Ano: ', bold: true }, `${ano}; `, { text: 'Cor: ', bold: true }, `${cor}; `, { text: 'Placa: ', bold: true }, `${placa}.` ], style: 'bodyContrato' },
+                    { text: 'Nos seguintes termos:', style: 'bodyContrato' },
+                    { text: '1. O veículo é de propriedade do VENDEDOR, que comprova ao COMPRADOR mediante entrega do DUT(documento único de transferência) expedido pela DETRAN, totalmente livre e desembaraçado de quaisquer ônus.', style: 'bodyContrato' },
+                    { text: `2. O preço total do veículo é de R$ ${valorTotal};`, style: 'bodyContrato' },
+                    { text: '3. O comprador pagará o veículo nas seguintes condições:', style: 'bodyContrato' },
+                    ...pagamentosContrato,
+                    { text: '4. As multas, impostos, taxas e alienações não quitados e incidentes sobre o veículo objeto do presente contrato, até a presente data, são de inteira e exclusiva responsabilidade do VENDEDOR, que assume o compromisso de pagar os respectivos montantes e apresentar seus comprovantes ao COMPRADOR no prazo de 5 (cinco) dias, contados a partir da data da assinatura do presente contrato, sob pena de, não o fazendo, declarar-se em moratória perante o COMPRADOR, sujeitando-se às ações cabíveis de cobrança e execução.', style: 'bodyContrato' },
+                    { text: '4.1 O COMPRADOR assume total responsabilidade sobre o licenciamento 2026 do veículo.', style: 'bodyContrato' },
+                    { text: '5. O VENDEDOR apresenta, para concretização do negócio, negativa de multa, expedida pelo DETRAN, assumindo a responsabilidade cível e criminal pela autenticidade do respectivo documento.', style: 'bodyContrato', margin: [0, 0, 0, 0] },
+                    { text: 'O COMPRADOR declara ter recebido respectivo documento original, lido e de acordo, sem contudo declinar do direito de cobrança dos eventuais encargos mencionados na cláusula anterior.', style: 'bodyContrato' },
+                    { text: '6. O presente documento está diretamente vinculado ao Formulário de Responsabilidade.', style: 'bodyContrato' },
+
+                    { text: '', pageBreak: 'before' },
+
+                    // ===== PÁGINA 2 =====
+                    { text: '7. O COMPRADOR compromete-se, no prazo de 30 (trinta) dias contados da assinatura do presente contrato, a providenciar, junto ao DETRAN, o registro da respectiva transferência de propriedade, sob pena, de não o fazendo, vir a responder pelos encargos, multas e demais cominações decorrentes de sua omissão.', style: 'bodyContrato' },
+                    { text: '8. A entrega do veículo é feita de imediato ou após a quitação do negócio.', style: 'bodyContrato', margin: [0, 0, 0, 0] },
+                    { text: 'O COMPRADOR declara ter recebido o mesmo mediante vistoria, nada mais tendo a reclamar quanto a estado, conservação ou acessórios, assumindo inteira responsabilidade cível ou criminal pela condução do mesmo, isentando o VENDEDOR de qualquer ônus ou reparação, co-responsabilidade ou participação em qualquer ato em desacordo com o Código Nacional de Trânsito, a partir da efetivação desta entrega.', style: 'bodyContrato' },
+                    { text: '9. Os contratantes assinam por si, seus herdeiros ou sucessores, em caráter irrevogável, o presente contrato, escolhendo o foro e a comarca desta cidade para dirimir quaisquer dúvidas, porventura suscitadas pelo presente documento.', style: 'bodyContrato' },
+
+                    { text: `Porto Alegre - RS | ${dataVenda}`, alignment: 'right', margin: [0, 20, 0, 20], fontSize: 12 },
+                    { columns: [ { text: '___________________________________\nVENDEDOR', style: 'assinaturasContrato' }, { text: '___________________________________\nCOMPRADOR', style: 'assinaturasContrato' } ] },
+
+                    { text: '', pageBreak: 'before' },
+
+                    // ===== PÁGINA 3 =====
+                    { text: `${razaoSocial}, com sede em AV DR NILO PECANHA 3245, Sala 607. Doravante denominado VENDEDOR, e, pessoa física, ${nomeComprador}, pessoa física inscrita pelo CPF N° ${cpfCnpj}.`, style: 'bodyFormulario' },
+                    { text: 'Concluem uma transação em relação ao veículo:', style: 'bodyFormulario' },
+                    { text: [ { text: 'Marca: ', bold: true }, `${marca}; `, { text: 'Modelo: ', bold: true }, `${modelo};\n`, { text: 'Ano: ', bold: true }, `${ano}; `, { text: 'Cor: ', bold: true }, `${cor}; `, { text: 'Placa: ', bold: true }, `${placa}.` ], style: 'bodyFormulario' },
+                    { text: 'Sob os seguintes termos:', style: 'bodyFormulario' },
+                    { text: `Data da Venda: ${dataVenda}; Valor do Veículo: R$ ${valorTotal};\nMétodo(s) de Pagamento:`, style: 'bodyFormulario' },
+                    ...pagamentosFormulario,
+                    { text: `Prazo Máximo para Entrega da Documentação: ${dataDoc}.`, style: 'bodyFormulario' },
+                    { text: '1. Certificado de Registro do Veículo', style: 'bodyFormulario', bold: true },
+                    { text: 'O COMPRADOR declara que inspecionou toda documentação junto aos órgãos responsáveis (DETRAN e Seguradoras).', style: 'bodyFormulario', margin: [0, 0, 0, 0] },
+                    { text: 'Também inspecionou características de funcionamento do veículo, bem como motor, elétrica, suspensão entre outros.', style: 'bodyFormulario' },
+                    { text: 'O COMPRADOR declara que por se tratar de um veículo usado está ciente de possíveis defeitos de uso do mesmo e trata-se de um "repasse", podendo ser um veículo recuperado de leilão de seguradoras ou financeiras.', style: 'bodyFormulario' },
+                    { text: 'O COMPRADOR concorda que o veículo está sendo vendido da "forma como está" e o VENDEDOR não é responsável sobre a garantia mecânica, de condição e desempenho de todo o veículo e que o VENDEDOR não é capaz de assegurar a originalidade da quilometragem indicada no painel de veículo.', style: 'bodyFormulario' },
+                    { text: 'O COMPRADOR declara expressamente ter plena ciência de que o VENDEDOR não foi o único proprietário do veículo e, portanto, não possui meios de garantir a integridade histórica do odômetro.', style: 'bodyFormulario', margin: [0, 0, 0, 0] },
+                    { text: 'O COMPRADOR assume total responsabilidade por qualquer eventual divergência entre a quilometragem indicada no painel e a rodagem real do motor ou componentes, renunciando, de forma irrevogável, a qualquer pleito de indenização, abatimento no preço ou rescisão contratual motivada por tal disparidade.', style: 'bodyFormulario' },
+                    { text: 'O COMPRADOR concorda em RENUNCIAR, LIBERAR e DESOBRIGAR VENDEDOR de qualquer e toda responsabilidade e o COMPRADOR concorda em inocentar e promete não ajuizar o VENDEDOR por qualquer e toda responsabilidade ou prejuízos decorrentes de sua participação nesta atividade.', style: 'bodyFormulario' },
+
+                    { columns: [ { text: '___________________________________\nVENDEDOR', style: 'assinaturasFormulario' }, { text: '___________________________________\nCOMPRADOR', style: 'assinaturasFormulario' } ] }
+                ],
+                footer: function() {
+                    return {
+                        text: `VZ MOTORS | Avenida Dr. Nilo Peçanha 3245, sala 607. Porto Alegre - RS\nvzmotors.com.br | (51) 9 3619-0694`,
+                        style: 'footerText'
+                    };
+                },
+                styles: {
+                    bodyContrato: { fontSize: 12, alignment: 'justify', margin: [0, 0, 0, 8], lineHeight: 1.15 },
+                    bodyFormulario: { fontSize: 10, alignment: 'justify', margin: [0, 0, 0, 8], lineHeight: 1.15 },
+                    footerText: { fontSize: 9, alignment: 'center', color: '#555', margin: [0, 10, 0, 0] },
+                    assinaturasContrato: { alignment: 'center', margin: [0, 50, 0, 0], fontSize: 12 },
+                    assinaturasFormulario: { alignment: 'center', margin: [0, 50, 0, 0], fontSize: 10 }
+                }
+            };
+        }
+
+        // FUNÇÃO 1: Baixar PDF
+        function gerarPDF() {
+            try {
+                const nome = document.getElementById('nomeComprador').value || 'Cliente';
+                const placa = document.getElementById('placaVeiculo').value || 'Veiculo';
+                const nomeArquivo = nome ? nome.replace(/\s+/g, '_') : 'Cliente';
+                pdfMake.createPdf(getDocDefinition()).download(`Contrato_${nomeArquivo}_${placa}.pdf`);
+            } catch (e) {
+                console.error("Erro PDF:", e);
+                alert("Falha ao gerar PDF. Verifique se todos os campos estão preenchidos corretamente ou consulte o console.");
+            }
+        }
+
+        // FUNÇÃO 2: Imprimir PDF (Abre a tela de impressão direto)
+        function imprimirPDF() {
+            try {
+                pdfMake.createPdf(getDocDefinition()).print();
+            } catch (e) {
+                console.error("Erro Impressão:", e);
+                alert("Falha ao abrir tela de impressão.");
+            }
+        }
+
+        // FUNÇÃO 3: Enviar por WhatsApp
+        function enviarWhatsApp() {
+            const telefone = prompt("Digite o WhatsApp do cliente com DDD (Apenas números, Ex: 51999999999):");
+            if(!telefone) return;
+
+            const nome = document.getElementById('nomeComprador').value || 'Cliente';
+            const placa = document.getElementById('placaVeiculo').value || 'Veiculo';
+
+            pdfMake.createPdf(getDocDefinition()).getBlob((blob) => {
+                const file = new File([blob], `Contrato_${nome}_${placa}.pdf`, { type: "application/pdf" });
+
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    // Se estiver no celular (Android/iOS), abre a bandeja nativa de compartilhamento
+                    navigator.share({
+                        title: 'Contrato de Compra e Venda',
+                        text: 'Olá! Segue em anexo o seu contrato.',
+                        files: [file]
+                    }).catch(console.error);
+                } else {
+                    // No computador: baixa o arquivo e abre o WhatsApp Web
+                    alert("O contrato será baixado agora. O WhatsApp Web vai abrir, basta arrastar o arquivo baixado para a conversa!");
+                    const marca = document.getElementById('marcaVeiculo').value || 'seu veículo';
+                    const mensagem = encodeURIComponent(`Olá, ${nome}! Seu contrato referente ao ${marca} já está pronto. Segue o documento para conferência.`);
+
+                    gerarPDF(); // Baixa o PDF
+                    window.open(`https://wa.me/55${telefone}?text=${mensagem}`, '_blank'); // Abre o WhatsApp
+                }
+            });
+        }
+    </script>
+</body>
+</html>

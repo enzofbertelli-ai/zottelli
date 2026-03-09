@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Logística | Zottelli Selection</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <script src="https://unpkg.com/imask"></script>
+    <script>
+        const _u = JSON.parse(sessionStorage.getItem('usuarioLogado') || 'null');
+        if (!_u) window.location.href = '/login.html';
+        if (_u && _u.cargo !== 'admin') window.location.href = '/index.html';
+        function sair() { sessionStorage.removeItem('usuarioLogado'); window.location.href = '/login.html'; }
+    </script>
+    <link href="style.css" rel="stylesheet">
+    <style>
+        .status-badge { cursor: pointer; user-select: none; }
+        .box-consulta { background-color: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 20px; }
+        .linha-atraso-leve  { --bs-table-bg: rgba(210,153,34,0.12) !important; }
+        .linha-atraso-grave { --bs-table-bg: rgba(248,81,73,0.10)  !important; }
+        .linha-arquivada    { --bs-table-bg: transparent !important; color: var(--muted); }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <a href="index.html" class="brand-logo">ZOTTELLI<span style="color:var(--accent);">.</span></a>
+        <ul class="nav flex-column mt-2" id="sidebarNav"></ul>
+    </div>
+
+    <div class="main-content">
+
+        <div class="box-consulta mb-4">
+            <h5 class="text-white mb-3"><i class="bi bi-search me-2"></i> Consultor Histórico de Frete</h5>
+            <div class="row align-items-end g-3">
+                <div class="col-md-4">
+                    <label class="form-label text-muted">Filtrar por Origem (Cidade/Estado)</label>
+                    <select class="form-select" id="filtroOrigem" onchange="calcularConsulta()"><option value="">Selecione para pesquisar...</option></select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label text-muted">Filtrar por Transportadora</label>
+                    <select class="form-select" id="filtroTransp" onchange="calcularConsulta()"><option value="">Todas as transportadoras</option></select>
+                </div>
+                <div class="col-md-4">
+                    <div class="p-2 border border-secondary rounded text-center">
+                        <span class="text-muted d-block" style="font-size: 0.8rem;">Média Histórica (Coleta até Entrega)</span>
+                        <strong class="text-success fs-5" id="resultadoConsulta">R$ 0,00 | 0 dias</strong>
+                    </div>
+                </div>
+            </div>
+
+            <div id="boxListaBI" class="mt-4" style="display: none;">
+                <h6 class="text-info border-bottom border-secondary pb-2">Veículos Encontrados nesta Pesquisa</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-dark table-bordered mb-0">
+                        <thead class="text-muted">
+                            <tr><th>Veículo</th><th>Transportadora</th><th>Origem</th><th>Valor (R$)</th><th>Dias em Viagem</th></tr>
+                        </thead>
+                        <tbody id="listaBICorpo"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="card p-4 mb-4">
+            <h5 class="text-white mb-3">Adicionar Novo Veículo na Rota</h5>
+            <form id="formTransporte" class="row g-3">
+                <div class="col-md-3"><input type="text" id="tCarro" class="form-control" placeholder="Veículo (Ex: BMW 320i)" required style="text-transform: uppercase;"></div>
+                <div class="col-md-2"><input type="text" id="tPlaca" class="form-control" placeholder="Placa (ABC-1234)" required></div>
+                <div class="col-md-3"><input type="text" id="tFonte" class="form-control" placeholder="Fonte (Ex: Copart)" required></div>
+                <div class="col-md-4"><input type="text" id="tTransp" class="form-control" placeholder="Transportadora" required></div>
+
+                <div class="col-md-3"><input type="text" id="tValor" class="form-control mascara-dinheiro" placeholder="Valor do Frete (R$)" required></div>
+                <div class="col-md-3"><input type="text" id="tOrigem" class="form-control" placeholder="Origem (Ex: BH - MG)" required></div>
+
+                <div class="col-md-2"><input type="date" id="tDataInclusao" class="form-control" title="Data de Inclusão no Sistema" required></div>
+
+                <div class="col-md-4">
+                    <button type="submit" class="btn btn-primary w-100"><i class="bi bi-plus-lg me-2"></i> Injetar no Painel</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="card p-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="text-white m-0" id="tituloTabelaPrincipal">Painel de Rastreio Ativo</h5>
+                <button class="btn btn-outline-secondary btn-sm" id="btnAlternarVisao" onclick="alternarVisao()">Ver Carros Arquivados</button>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-dark table-hover align-middle table-mob">
+                    <thead>
+                        <tr>
+                            <th>Veículo / Placa</th>
+                            <th>Origem</th>
+                            <th>Transportadora / Fonte</th>
+                            <th>Status Financeiro</th>
+                            <th>Etapa Logística</th>
+                            <th>Datas (P / C / E)</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabelaCorpo">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="modal fade" id="modalDatas" tabindex="-1" data-bs-theme="dark">
+        <div class="modal-dialog">
+            <div class="modal-content bg-dark text-white">
+                <div class="modal-header border-secondary">
+                    <h5 class="modal-title">Gestão de Datas do Veículo</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="modalId">
+
+                    <div class="alert alert-secondary p-2 mb-4">
+                        <small><strong>Data de Inclusão no Sistema:</strong> <span id="modalTextInclusao"></span></small>
+                    </div>
+
+                    <label class="form-label text-info">Dia do Pedido à Transportadora</label>
+                    <input type="date" class="form-control mb-3" id="modalPedido">
+
+                    <label class="form-label text-warning">Dia da Coleta do Veículo</label>
+                    <input type="date" class="form-control mb-3" id="modalColeta">
+
+                    <label class="form-label text-success">Dia da Entrega na Loja</label>
+                    <input type="date" class="form-control" id="modalEntrega">
+                </div>
+                <div class="modal-footer border-secondary">
+                    <button type="button" class="btn btn-primary" onclick="salvarDatas()">Salvar Datas</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="sidebar.js"></script>
+    <script>
+        const usuarioLogado = JSON.parse(sessionStorage.getItem('usuarioLogado') || 'null');
+        const apiHeaders = { 'Content-Type': 'application/json', 'x-username': usuarioLogado?.username || '' };
+
+
+        let transportesData = [];
+
+        function exportarExcel() {
+            if (!transportesData.length) return alert('Sem dados para exportar');
+            const cabecalho = ['Carro', 'Placa', 'Origem', 'Fonte', 'Transportadora', 'Valor (R$)', 'Pago', 'Status', 'Inclusão', 'Pedido', 'Coleta', 'Entrega', 'Arquivado'];
+            const linhas = transportesData.map(t => [
+                t.carro, t.placa, t.origem, t.fonte, t.transportadora, t.valor,
+                t.pago ? 'Sim' : 'Não', t.status, t.data_inclusao, t.dia_pedido, t.dia_coleta, t.dia_entrega, t.arquivado ? 'Sim' : 'Não'
+            ]);
+            exportToExcel('transportes_logistica', cabecalho, linhas);
+        }
+
+        buildSidebar('transporte.html');
+        let visaoArquivados = false;
+
+        // 1. MÁSCARAS
+        document.addEventListener("DOMContentLoaded", () => {
+            IMask(document.getElementById('tPlaca'), {
+                mask: [{mask: 'aaa-0000'}, {mask: 'aaa0a00'}],
+                prepare: function (str) { return str.toUpperCase(); }
+            });
+            IMask(document.getElementById('tValor'), {
+                mask: 'R$ num',
+                blocks: { num: { mask: Number, thousandsSeparator: '.', padFractionalZeros: true, radix: ',' } }
+            });
+
+            // Preenche o campo "Data de Inclusão" automaticamente com o dia de hoje
+            document.getElementById('tDataInclusao').value = new Date().toISOString().split('T')[0];
+        });
+
+        // 2. INICIALIZAÇÃO
+        async function carregarTransportes() {
+            const response = await fetch('/api/transportes');
+            transportesData = await response.json();
+
+            renderizarTabelaPrincipal();
+            popularFiltrosConsulta();
+            // Limpa o filtro de consulta ao recarregar a tela
+            document.getElementById('filtroOrigem').value = '';
+            document.getElementById('filtroTransp').value = '';
+            calcularConsulta();
+        }
+
+        // 3. TABELA PRINCIPAL (NÃO É AFETADA PELO BI)
+        function alternarVisao() {
+            visaoArquivados = !visaoArquivados;
+            const btn = document.getElementById('btnAlternarVisao');
+            const titulo = document.getElementById('tituloTabelaPrincipal');
+
+            btn.innerText = visaoArquivados ? "Voltar para Rastreio Ativo" : "Ver Carros Arquivados";
+            titulo.innerText = visaoArquivados ? "Histórico de Carros Arquivados" : "Painel de Rastreio Ativo";
+
+            btn.classList.toggle('btn-secondary');
+            btn.classList.toggle('btn-outline-secondary');
+            renderizarTabelaPrincipal();
+        }
+
+        function renderizarTabelaPrincipal() {
+            const tbody = document.getElementById('tabelaCorpo');
+            tbody.innerHTML = '';
+
+            const carrosExibidos = transportesData.filter(t => (visaoArquivados ? t.arquivado === 1 : t.arquivado === 0));
+
+            if(carrosExibidos.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-4">Nenhum veículo encontrado nesta lista.</td></tr>`;
+                return;
+            }
+
+            carrosExibidos.forEach(t => {
+                const dPedido = t.dia_pedido ? t.dia_pedido.split('-').reverse().join('/') : '-';
+                const dColeta = t.dia_coleta ? t.dia_coleta.split('-').reverse().join('/') : 'Aguardando';
+                const dEntrega = t.dia_entrega ? t.dia_entrega.split('-').reverse().join('/') : 'Aguardando';
+
+                let linhaHtml = '';
+
+                // === VISÃO ARQUIVADA (Limpa, sem cores, apenas botão excluir e desarquivar) ===
+                if(visaoArquivados) {
+                    const statusPago = t.pago ? `<span class="text-success">PAGO</span>` : `<span class="text-danger">PEND.</span>`;
+                    linhaHtml = `
+                        <tr class="linha-arquivada">
+                            <td data-label="Veículo"><strong>${t.carro}</strong><br><small>${t.placa}</small></td>
+                            <td data-label="Origem">${t.origem}</td>
+                            <td data-label="Transportadora">${t.transportadora}</td>
+                            <td data-label="Valor">R$ ${(t.valor || 0).toFixed(2)} (${statusPago})</td>
+                            <td data-label="Status"><span class="badge bg-secondary px-3 py-2">ARQUIVADO</span></td>
+                            <td data-label="Datas">P: ${dPedido} | C: ${dColeta} | E: ${dEntrega}</td>
+                            <td class="no-label">
+                                <div class="btn-group">
+                                    <button class="btn btn-sm btn-outline-success" title="Desarquivar" onclick="arquivarTransporte(${t.id}, 0)"><i class="bi bi-box-arrow-up"></i></button>
+                                    <button class="btn btn-sm btn-outline-danger" title="Excluir" onclick="excluirTransporte(${t.id})"><i class="bi bi-trash"></i></button>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                }
+                // === VISÃO ATIVA (Cheia de recursos, alertas, WhatsApp, etc) ===
+                else {
+                    const badgePago = t.pago ?
+                        `<span class="badge bg-success status-badge p-2" onclick="alternarPagamento(${t.id}, 0)">R$ ${(t.valor || 0).toFixed(2)} - PAGO</span>` :
+                        `<span class="badge bg-danger status-badge p-2" onclick="alternarPagamento(${t.id}, 1)">R$ ${(t.valor || 0).toFixed(2)} - PEND.</span>`;
+
+                    const selDoc = t.status === 'Documentação' ? 'selected' : '';
+                    const selLib = t.status === 'Liberado' ? 'selected' : '';
+                    const selCam = t.status === 'À Caminho' ? 'selected' : '';
+                    const selEnt = t.status === 'Entregue' ? 'selected' : '';
+
+                    let classeAtraso = ''; let iconeAtraso = '';
+                    if (t.status === 'À Caminho' && t.dia_coleta) {
+                        const dataColeta = new Date(t.dia_coleta + 'T12:00:00Z');
+                        const hoje = new Date();
+                        const diffDias = Math.floor((hoje - dataColeta) / (1000 * 60 * 60 * 24));
+                        if (diffDias > 10) { classeAtraso = 'linha-atraso-grave'; iconeAtraso = `<i class="bi bi-exclamation-triangle-fill text-danger me-2" title="Grave!"></i>`; }
+                        else if (diffDias > 7) { classeAtraso = 'linha-atraso-leve'; iconeAtraso = `<i class="bi bi-exclamation-circle-fill text-warning me-2" title="Atenção!"></i>`; }
+                    }
+
+                    linhaHtml = `
+                        <tr class="${classeAtraso}">
+                            <td data-label="Veículo">${iconeAtraso}<strong>${t.carro}</strong><br><small class="text-muted">${t.placa}</small></td>
+                            <td data-label="Origem">${t.origem}</td>
+                            <td data-label="Transportadora">${t.transportadora}<br><small class="text-muted">${t.fonte}</small></td>
+                            <td data-label="Financeiro">${badgePago}</td>
+                            <td data-label="Etapa">
+                                <select class="form-select form-select-sm bg-dark text-white" onchange="mudarStatus(${t.id}, this.value)">
+                                    <option value="Documentação" ${selDoc}>📋 Doc / Preparação</option>
+                                    <option value="Liberado" ${selLib}>✅ Liberado p/ Coleta</option>
+                                    <option value="À Caminho" ${selCam}>🚚 À Caminho</option>
+                                    <option value="Entregue" ${selEnt}>📍 Entregue</option>
+                                </select>
+                            </td>
+                            <td data-label="Datas" style="font-size: 0.80rem;">
+                                <span class="text-info">P: ${dPedido}</span><br><span class="text-warning">C: ${dColeta}</span><br><span class="text-success">E: ${dEntrega}</span>
+                            </td>
+                            <td class="no-label">
+                                <div class="btn-group">
+                                    <button class="btn btn-sm btn-outline-success" title="Cobrar WhatsApp" onclick="cobrarWhatsApp('${t.carro}', '${t.placa}', '${t.origem}', '${t.status}')"><i class="bi bi-whatsapp"></i></button>
+                                    <button class="btn btn-sm btn-outline-info" title="Datas" onclick="abrirModalDatas(${t.id}, '${t.data_inclusao || ''}', '${t.dia_pedido || ''}', '${t.dia_coleta || ''}', '${t.dia_entrega || ''}')"><i class="bi bi-calendar"></i></button>
+                                    <button class="btn btn-sm btn-outline-warning" title="Arquivar" onclick="arquivarTransporte(${t.id}, 1)"><i class="bi bi-box-arrow-down"></i></button>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                }
+                tbody.innerHTML += linhaHtml;
+            });
+        }
+
+        // 4. COBRANÇA WHATSAPP
+        function cobrarWhatsApp(carro, placa, origem, status) {
+            const telefone = prompt("Digite o WhatsApp com DDD (Ex: 51999999999):");
+            if(!telefone) return;
+            let acao = (status === 'Documentação' || status === 'Liberado') ? 'COLETA' : 'ENTREGA';
+            const mensagem = encodeURIComponent(`Olá, bom dia! Gostaria de verificar a previsão de ${acao} para o veículo ${carro} (Placa: ${placa}), origem: ${origem}. Pode me atualizar, por favor?`);
+            window.open(`https://wa.me/55${telefone}?text=${mensagem}`, '_blank');
+        }
+
+        // 5. CONSULTOR DE FRETE (BI) E LISTA SIMPLES
+        function popularFiltrosConsulta() {
+            const selOrigem = document.getElementById('filtroOrigem');
+            const selTransp = document.getElementById('filtroTransp');
+            const atualOrigem = selOrigem.value; const atualTransp = selTransp.value;
+
+            const origens = [...new Set(transportesData.map(t => t.origem).filter(Boolean))].sort();
+            const transps = [...new Set(transportesData.map(t => t.transportadora).filter(Boolean))].sort();
+
+            selOrigem.innerHTML = '<option value="">Selecione para pesquisar...</option>' + origens.map(o => `<option value="${o}">${o}</option>`).join('');
+            selTransp.innerHTML = '<option value="">Todas as transportadoras</option>' + transps.map(tr => `<option value="${tr}">${tr}</option>`).join('');
+
+            selOrigem.value = atualOrigem; selTransp.value = atualTransp;
+        }
+
+        function calcularConsulta() {
+            const filtroOrigem = document.getElementById('filtroOrigem').value;
+            const filtroTransp = document.getElementById('filtroTransp').value;
+
+            const boxLista = document.getElementById('boxListaBI');
+            const tbodyBI = document.getElementById('listaBICorpo');
+            tbodyBI.innerHTML = '';
+
+            // Se não tiver nada pesquisado, esconde a listinha de consulta e zera painel
+            if(!filtroOrigem && !filtroTransp) {
+                boxLista.style.display = 'none';
+                document.getElementById('resultadoConsulta').innerText = `R$ 0,00 | 0 dias`;
+                return;
+            }
+
+            // Se pesquisou, mostra a lista e calcula
+            boxLista.style.display = 'block';
+            let frotaBI = transportesData;
+
+            if(filtroOrigem) frotaBI = frotaBI.filter(t => t.origem === filtroOrigem);
+            if(filtroTransp) frotaBI = frotaBI.filter(t => t.transportadora === filtroTransp);
+
+            let totalValor = 0; let diasTotais = 0; let carrosComPrazo = 0;
+
+            frotaBI.forEach(t => {
+                totalValor += t.valor;
+
+                let textoDias = '-';
+                if(t.dia_coleta && t.dia_entrega) {
+                    const dC = new Date(t.dia_coleta + 'T12:00:00Z');
+                    const dE = new Date(t.dia_entrega + 'T12:00:00Z');
+                    const diff = Math.ceil(Math.abs(dE - dC) / (1000 * 60 * 60 * 24));
+                    diasTotais += diff;
+                    carrosComPrazo++;
+                    textoDias = diff + ' dias';
+                }
+
+                // Alimenta a listinha simples
+                tbodyBI.innerHTML += `
+                    <tr>
+                        <td>${t.carro} <small class="text-muted">(${t.placa})</small></td>
+                        <td>${t.transportadora}</td>
+                        <td>${t.origem}</td>
+                        <td>R$ ${t.valor.toFixed(2)}</td>
+                        <td>${textoDias}</td>
+                    </tr>
+                `;
+            });
+
+            const mediaValor = frotaBI.length > 0 ? (totalValor / frotaBI.length) : 0;
+            const mediaDias = carrosComPrazo > 0 ? Math.round(diasTotais / carrosComPrazo) : 0;
+
+            document.getElementById('resultadoConsulta').innerText = `R$ ${mediaValor.toFixed(2)} | ${mediaDias} dias`;
+        }
+
+        // 6. COMUNICAÇÃO API
+        document.getElementById('formTransporte').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            let valorStr = String(document.getElementById('tValor').value || '0');
+            let valorNumerico = parseFloat(valorStr.replace('R$ ', '').replace(/\./g, '').replace(',', '.')) || 0;
+
+            const dados = {
+                carro: (document.getElementById('tCarro').value || '').toUpperCase(),
+                placa: (document.getElementById('tPlaca').value || '').toUpperCase(),
+                fonte: document.getElementById('tFonte').value || '',
+                transportadora: document.getElementById('tTransp').value || '',
+                valor: valorNumerico,
+                data_inclusao: document.getElementById('tDataInclusao').value || new Date().toISOString().split('T')[0],
+                origem: document.getElementById('tOrigem').value || ''
+            };
+
+            await fetch('/api/transportes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dados) });
+            document.getElementById('formTransporte').reset();
+            document.getElementById('tDataInclusao').value = new Date().toISOString().split('T')[0]; // Mantém a data de hoje pra próxima inserção
+            carregarTransportes();
+        });
+
+        async function atualizarTransporte(id, atualizacoes) {
+            const trans = transportesData.find(t => t.id === id);
+            const novoDado = { ...trans, ...atualizacoes };
+
+            await fetch(`/api/transportes/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(novoDado) });
+            carregarTransportes();
+        }
+
+        function alternarPagamento(id, novoStatus) { atualizarTransporte(id, { pago: novoStatus }); }
+        function mudarStatus(id, novoStatus) { atualizarTransporte(id, { status: novoStatus }); }
+        function arquivarTransporte(id, arquivado) { atualizarTransporte(id, { arquivado: arquivado }); }
+
+        async function excluirTransporte(id) {
+            if(confirm("Tem certeza que deseja apagar permanentemente este veículo do sistema?")) {
+                await fetch(`/api/transportes/${id}`, { method: 'DELETE' });
+                carregarTransportes();
+            }
+        }
+
+        // Modal de Datas atualizado
+        const modalDatas = new bootstrap.Modal(document.getElementById('modalDatas'));
+        function abrirModalDatas(id, inclusao, pedido, coleta, entrega) {
+            document.getElementById('modalId').value = id;
+
+            // Exibe a Inclusão como texto (Apenas Leitura)
+            document.getElementById('modalTextInclusao').innerText = inclusao ? inclusao.split('-').reverse().join('/') : 'Não registrada';
+
+            document.getElementById('modalPedido').value = pedido;
+            document.getElementById('modalColeta').value = coleta;
+            document.getElementById('modalEntrega').value = entrega;
+            modalDatas.show();
+        }
+
+        function salvarDatas() {
+            const id = parseInt(document.getElementById('modalId').value);
+            const pedido = document.getElementById('modalPedido').value;
+            const coleta = document.getElementById('modalColeta').value;
+            const entrega = document.getElementById('modalEntrega').value;
+            atualizarTransporte(id, { dia_pedido: pedido, dia_coleta: coleta, dia_entrega: entrega });
+            modalDatas.hide();
+        }
+
+        window.onload = carregarTransportes;
+    </script>
+
+    <!-- Botao export Excel -->
+
+    <div id="excel-btn-float" style="position:fixed;bottom:22px;right:22px;z-index:500">
+      <button onclick="exportarExcel()" style="background:rgba(22,22,22,.95);border:1px solid #22c55e;color:#22c55e;padding:9px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 2px 12px rgba(34,197,94,.2)">
+        <span style="font-size:16px">↓</span> Excel
+      </button>
+    </div>
+</body>
+</html>

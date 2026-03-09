@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frota e Custos | Zottelli Selection</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <script src="https://unpkg.com/imask"></script>
+    <link href="style.css" rel="stylesheet">
+    <style>
+        .main-content { overflow-x: hidden; }
+        .painel-lucro { background-color: rgba(63,185,80,0.08); border: 1px solid rgba(63,185,80,0.3); border-radius: 8px; }
+        .painel-custo { background-color: rgba(248,81,73,0.08); border: 1px solid rgba(248,81,73,0.3); border-radius: 8px; }
+        /* Tabela Panorâmica (Wide) */
+        .tabela-frota { font-size: 0.85rem; white-space: nowrap; }
+        .tabela-frota th, .tabela-frota td { padding: 0.5rem; vertical-align: middle; }
+
+        /* Custo 2 (Hover/Click Inteligente) */
+        .tooltip-custo2 { position: relative; display: inline-block; cursor: pointer; text-decoration: underline dotted #888; }
+        .tooltip-custo2-caixa {
+            visibility: hidden; opacity: 0; position: absolute; bottom: 125%; left: 50%; transform: translateX(-50%);
+            background-color: #2b2b2b; color: #fff; text-align: left; padding: 10px; border-radius: 6px;
+            border: 1px solid #555; z-index: 1000; min-width: 200px; box-shadow: 0 4px 15px rgba(0,0,0,0.7);
+            transition: opacity 0.2s;
+        }
+        .tooltip-custo2:hover .tooltip-custo2-caixa { visibility: visible; opacity: 1; }
+        .tooltip-custo2.fixado .tooltip-custo2-caixa { visibility: visible; opacity: 1; border-color: #0d6efd; background-color: #1a1a1a; }
+
+        /* Mini-lista no Modal */
+        .lista-custo-item { background-color: #222; border: 1px solid #444; padding: 5px 10px; border-radius: 4px; margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center; }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <a href="index.html" class="brand-logo">ZOTTELLI<span style="color:var(--accent);">.</span></a>
+        <ul class="nav flex-column mt-2" id="sidebarNav"></ul>
+    </div>
+
+    <div class="main-content">
+
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h4 class="text-white m-0" id="tituloPagina">Frota Ativa (Em Estoque/Preparação)</h4>
+            <div class="d-flex align-items-center gap-2">
+                <!-- Filtro: Todos / Meus Carros -->
+                <div class="btn-group btn-group-sm" id="grupFiltro">
+                    <button class="btn btn-secondary active" id="filtroTodos" onclick="aplicarFiltro('todos')">Todos</button>
+                    <button class="btn btn-outline-secondary" id="filtroMeus" onclick="aplicarFiltro('meus')">Meus Carros</button>
+                </div>
+                <button class="btn btn-outline-success" id="btnVisao" onclick="alternarVisao()">Ver Vendidos</button>
+                <button class="btn btn-primary" onclick="abrirModalNovaCompra()">+ Adicionar Compra</button>
+            </div>
+        </div>
+
+        <div class="card p-3 overflow-auto">
+            <table class="table table-dark table-hover table-bordered text-center tabela-frota table-mob">
+                <thead>
+                    <tr class="border-bottom border-secondary">
+                        <th class="text-start">Veículo / Ano / Placa</th>
+                        <th>Origem</th>
+                        <th>Destino</th>
+                        <th class="text-warning">Custo 1</th>
+                        <th class="text-warning">Frete</th>
+                        <th class="text-warning">Taxas</th>
+                        <th class="text-info">Custo 2</th>
+                        <th class="text-warning">Painel</th>
+                        <th class="text-warning">Desp.</th>
+                        <th class="text-warning">Funilaria</th>
+                        <th class="text-danger">Custo Final</th>
+                        <th class="text-success">Preço Venda</th>
+                        <th>Lucro</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="tabelaFrota">
+                    </tbody>
+            </table>
+        </div>
+
+    </div>
+
+    <div class="modal fade" id="modalNovaCompra" tabindex="-1" data-bs-theme="dark">
+        <div class="modal-dialog">
+            <div class="modal-content bg-dark text-white">
+                <div class="modal-header border-secondary">
+                    <h5 class="modal-title">Registrar Nova Compra</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="formNovoCarro">
+                        <div class="mb-3">
+                            <label class="form-label">Modelo do Veículo</label>
+                            <input type="text" id="ncModelo" class="form-control" style="text-transform: uppercase;" required>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-6"><label class="form-label">Placa</label><input type="text" id="ncPlaca" class="form-control" style="text-transform: uppercase;" required></div>
+                            <div class="col-6"><label class="form-label">Ano</label><input type="text" id="ncAno" class="form-control" placeholder="0000/0000" required></div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Origem (De quem comprou?)</label>
+                            <input type="text" id="ncOrigem" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label text-warning">Custo 1 (Valor pago no carro)</label>
+                            <input type="text" id="ncCustoCompra" class="form-control mascara-dinheiro" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100 mt-2">Salvar no Estoque</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalCustos" tabindex="-1" data-bs-theme="dark">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content bg-dark text-white">
+                <div class="modal-header border-secondary">
+                    <h5 class="modal-title" id="fcTitulo">Editar Linha do Veículo</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="fcId">
+
+                    <!-- Visor custo/lucro: somente dono vê totais reais -->
+                    <div id="secVisorTotal">
+                    <div class="row mb-3 text-center">
+                        <div class="col-6"><div class="painel-custo p-2"><small>Custo Final</small><h4 class="text-danger m-0" id="visorCustoTotal">R$ 0,00</h4></div></div>
+                        <div class="col-6"><div class="painel-lucro p-2"><small>Lucro Projetado</small><h4 class="text-success m-0" id="visorLucro">R$ 0,00</h4></div></div>
+                    </div>
+                    </div>
+
+                    <!-- ====== SEÇÃO EXCLUSIVA DO DONO ====== -->
+                    <div id="secOrigemDestino" class="row g-2">
+                        <div class="col-md-6 mb-2">
+                            <label class="form-label text-muted small m-0">Origem</label><input type="text" class="form-control form-control-sm" id="fcOrigem">
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <label class="form-label text-muted small m-0">Destino (Vendido p/)</label><input type="text" class="form-control form-control-sm" id="fcDestino">
+                        </div>
+                    </div>
+                    <div class="row g-2 mt-0">
+                        <div id="secCustoCompra" class="col-md-4"><label class="form-label text-muted small m-0">Custo 1 (Carro)</label><input type="text" class="form-control form-control-sm m-dinheiro calc-input" id="fcCompra"></div>
+                        <div id="secFrete" class="col-md-4">
+                            <label class="form-label text-muted small m-0 d-flex justify-content-between">
+                                Frete <span class="badge bg-primary px-1 ms-1" style="cursor:pointer;" onclick="puxarFrete()" title="Puxar Frete">Auto</span>
+                            </label>
+                            <input type="text" class="form-control form-control-sm m-dinheiro calc-input" id="fcTransporte">
+                        </div>
+                        <div class="col-md-4"><label class="form-label text-muted small m-0">Taxas</label><input type="text" class="form-control form-control-sm m-dinheiro calc-input" id="fcTaxas"></div>
+                        <div class="col-md-4"><label class="form-label text-muted small m-0">Despachante</label><input type="text" class="form-control form-control-sm m-dinheiro calc-input" id="fcDespachante"></div>
+                        <div class="col-md-4"><label class="form-label text-muted small m-0">Funilaria</label><input type="text" class="form-control form-control-sm m-dinheiro calc-input" id="fcFunilaria"></div>
+                        <div class="col-md-4"><label class="form-label text-muted small m-0">Painel/Módulo</label><input type="text" class="form-control form-control-sm m-dinheiro calc-input" id="fcPainel"></div>
+                    </div>
+
+                    <div class="mt-4 p-3 border border-info rounded" style="background-color: #0c1a24;">
+                        <h6 class="text-info mb-2">Gestor de Custo 2 (Gastos Diversos)</h6>
+                        <div class="d-flex gap-2 mb-2">
+                            <input type="text" id="c2Desc" class="form-control form-control-sm" placeholder="Descrição (Ex: Lavagem)">
+                            <input type="text" id="c2Valor" class="form-control form-control-sm mascara-dinheiro-c2" placeholder="R$ 0,00" style="width: 120px;">
+                            <button type="button" class="btn btn-sm btn-info" onclick="adicionarCusto2()">Adicionar</button>
+                        </div>
+                        <div id="listaCusto2" style="max-height: 120px; overflow-y: auto;">
+                            </div>
+                        <div class="text-end mt-2">
+                            <small>Total Custo 2: <strong class="text-info" id="c2TotalVisor">R$ 0,00</strong></small>
+                        </div>
+                    </div>
+
+                    <!-- Status e Venda: somente dono -->
+                    <div id="secStatusVenda" class="row mt-3 g-2">
+                        <div class="col-md-6"><label class="form-label text-muted small m-0">Status</label><select class="form-select form-select-sm" id="fcStatus"><option value="Estoque">Estoque</option><option value="Vendido">Vendido</option></select></div>
+                        <div class="col-md-6"><label class="form-label text-muted small m-0">Preço Venda</label><input type="text" class="form-control form-control-sm m-dinheiro calc-input border-success" id="fcVenda"></div>
+                    </div>
+
+                    <!-- Sócio e Dono: somente dono pode definir -->
+                    <div id="secSocio" class="mt-3 p-2 border border-secondary rounded" style="background-color: #161616;">
+                        <label class="form-label text-warning small m-0 mb-1 d-none" id="labelDono"><i class="bi bi-person-star me-1"></i>Definir Dono Original (Obrigatório)</label>
+                        <select class="form-select form-select-sm mb-2 d-none" id="fcDono" required>
+                            <option value="">Selecione quem comprou o veículo...</option>
+                        </select>
+                        <label class="form-label text-muted small m-0 mb-1"><i class="bi bi-people-fill me-1"></i>Sócio (compartilhar acesso completo)</label>
+                        <input type="text" class="form-control form-control-sm" id="fcSocio" placeholder="Username do sócio (ex: joao.silva)">
+                    </div>
+                    <!-- Datas: somente dono pode ver e editar -->
+                    <div id="secDatas" class="mt-3 p-2 border border-secondary rounded" style="background-color: #161616;">
+                        <label class="form-label text-muted small m-0 mb-2"><i class="bi bi-calendar3 me-1"></i>Datas do Veículo</label>
+                        <div class="row g-2">
+                            <div class="col-md-4"><label class="form-label text-muted small m-0">Data de Compra</label><input type="date" class="form-control form-control-sm" id="fcDataCompra"></div>
+                            <div class="col-md-4"><label class="form-label text-muted small m-0">Data de Pagamento</label><input type="date" class="form-control form-control-sm" id="fcDataPagamento"></div>
+                            <div class="col-md-4"><label class="form-label text-muted small m-0">Data de Venda</label><input type="date" class="form-control form-control-sm" id="fcDataVenda"></div>
+                        </div>
+                    </div>
+
+                </div>
+                <div class="modal-footer border-secondary justify-content-between">
+                    <button type="button" class="btn btn-outline-danger btn-sm" onclick="excluirCarroAtivo()">Excluir Veículo</button>
+                    <button type="button" class="btn btn-primary" onclick="salvarFicha()">Salvar Alterações</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Detalhes do Veículo -->
+    <div class="modal fade" id="modalDetalhes" tabindex="-1" data-bs-theme="dark">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content bg-dark text-white">
+                <div class="modal-header border-secondary">
+                    <h5 class="modal-title" id="detTitulo">Detalhes do Veículo</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Info básica (todos veem) -->
+                    <div class="row mb-3">
+                        <div class="col-6"><small class="text-muted">Ano</small><p class="mb-0 fw-bold" id="detAno"></p></div>
+                        <div class="col-6"><small class="text-muted">Status</small><p class="mb-0 fw-bold" id="detStatus"></p></div>
+                    </div>
+
+                    <!-- Info restrita (somente dono/sócio) -->
+                    <div id="detInfoRestrita">
+                        <div class="row mb-3 p-2 rounded" style="background-color: #1a2a1a; border: 1px solid #2a5a2a;">
+                            <div class="col-12 mb-2"><small class="text-success fw-bold"><i class="bi bi-shield-lock me-1"></i>Informações do Dono</small></div>
+                            <div class="col-md-4"><small class="text-muted">Origem</small><p class="mb-0" id="detOrigem"></p></div>
+                            <div class="col-md-4"><small class="text-muted">Destino</small><p class="mb-0" id="detDestino"></p></div>
+                            <div class="col-md-4"><small class="text-muted">Sócio</small><p class="mb-0" id="detSocio"></p></div>
+                        </div>
+                        <div class="row mb-3 p-2 rounded" style="background-color: #1a1a2a; border: 1px solid #2a2a5a;">
+                            <div class="col-12 mb-2"><small class="text-info fw-bold"><i class="bi bi-calendar3 me-1"></i>Histórico de Datas</small></div>
+                            <div class="col-md-4">
+                                <small class="text-muted d-block">📦 Comprado em</small>
+                                <span class="fw-bold" id="detDataCompra"></span>
+                            </div>
+                            <div class="col-md-4">
+                                <small class="text-muted d-block">💰 Pago em</small>
+                                <span class="fw-bold" id="detDataPagamento"></span>
+                            </div>
+                            <div class="col-md-4">
+                                <small class="text-muted d-block">🤝 Vendido em</small>
+                                <span class="fw-bold text-success" id="detDataVenda"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Log de atividades -->
+                    <div>
+                        <small class="text-muted fw-bold"><i class="bi bi-clock-history me-1"></i>Log de Atividades</small>
+                        <div id="detLogs" class="mt-2" style="max-height: 300px; overflow-y: auto;"></div>
+                    </div>
+                </div>
+                <div class="modal-footer border-secondary">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="sidebar.js"></script>
+    <script>
+        const usuarioLogado = JSON.parse(sessionStorage.getItem('usuarioLogado') || 'null');
+        const apiHeaders = { 'Content-Type': 'application/json', 'x-username': usuarioLogado?.username || '' };
+
+        function exportarExcel() {
+            if (!frotaFiltrada || !frotaFiltrada.length) return alert('Sem dados para exportar nesta visão.');
+            const cabecalho = ['Carro', 'Placa', 'Ano', 'Origem', 'Destino', 'Status', 'Custo 1', 'Custo 2', 'Frete', 'Taxas', 'Painel', 'Despachante', 'Funilaria', 'Venda', 'Dono'];
+            const linhas = frotaFiltrada.map(c => [
+                c.modelo, c.placa, c.ano, c.origem || '', c.destino || '', c.status,
+                c.custo_compra, c.custo_geral, c.custo_transporte, c.custo_taxas,
+                c.custo_painel, c.custo_despachante, c.custo_funilaria, c.preco_venda,
+                c.dono || 'Nenhum'
+            ]);
+            exportToExcel('frota_veiculos', cabecalho, linhas);
+        }
+
+        buildSidebar('frota.html');
+
+        let frotaData = [];
+        let frotaFiltrada = [];
+        let filtroAtivo = 'todos';
+        let placaAtualEditando = '';
+        let visaoVendidos = false;
+
+        // Array local para gerenciar o Custo 2 do carro que está sendo editado
+        let custo2Local = [];
+
+        // 1. MÁSCARAS
+        function initMasks() {
+            IMask(document.getElementById('ncPlaca'), { mask: [{mask: 'aaa-0000'}, {mask: 'aaa0a00'}], prepare: str => str.toUpperCase() });
+            IMask(document.getElementById('ncAno'), { mask: '0000/0000' });
+
+            document.querySelectorAll('.mascara-dinheiro, .m-dinheiro, .mascara-dinheiro-c2').forEach(el => {
+                IMask(el, { mask: 'R$ num', blocks: { num: { mask: Number, thousandsSeparator: '.', padFractionalZeros: true, radix: ',' } } });
+            });
+        }
+        document.addEventListener("DOMContentLoaded", initMasks);
+
+        function strToFloat(str) { return parseFloat((str||'').replace('R$ ', '').replace(/\./g, '').replace(',', '.')) || 0; }
+        function floatToStr(num) { return 'R$ ' + parseFloat(num).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
+
+        // 2. INICIALIZAÇÃO
+        async function carregarFrota() {
+            const response = await fetch('/api/frota', { headers: apiHeaders });
+            frotaData = await response.json();
+            aplicarFiltro(filtroAtivo);
+        }
+
+        function aplicarFiltro(tipo) {
+            filtroAtivo = tipo;
+            document.getElementById('filtroTodos').className = tipo === 'todos' ? 'btn btn-secondary active' : 'btn btn-outline-secondary';
+            document.getElementById('filtroMeus').className = tipo === 'meus' ? 'btn btn-secondary active' : 'btn btn-outline-secondary';
+            frotaFiltrada = tipo === 'meus' ? frotaData.filter(c => c._isDono) : [...frotaData];
+            renderizarTabela();
+        }
+
+        function alternarVisao() {
+            visaoVendidos = !visaoVendidos;
+            document.getElementById('btnVisao').innerText = visaoVendidos ? "Ver Estoque Ativo" : "Ver Vendidos";
+            document.getElementById('btnVisao').classList.toggle('btn-outline-success');
+            document.getElementById('btnVisao').classList.toggle('btn-success');
+            document.getElementById('tituloPagina').innerText = visaoVendidos ? "Histórico de Veículos Vendidos" : "Frota Ativa (Em Estoque/Preparação)";
+            renderizarTabela();
+        }
+
+        const LOCK = `<span class="text-secondary" title="Acesso restrito">🔒</span>`;
+
+        // 3. RENDERIZAR TABELA PANORÂMICA
+        function renderizarTabela() {
+            const tbody = document.getElementById('tabelaFrota');
+            tbody.innerHTML = '';
+
+            const carrosExibidos = frotaFiltrada.filter(c => visaoVendidos ? c.status === 'Vendido' : c.status === 'Estoque');
+
+            if(carrosExibidos.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="14" class="text-center text-muted py-4">Nenhum veículo nesta visão.</td></tr>`;
+                return;
+            }
+
+            carrosExibidos.forEach(car => {
+                const isDono = car._isDono;
+
+                // Custos visíveis para todos
+                const cTaxas = car.custo_taxas > 0 ? floatToStr(car.custo_taxas) : '-';
+                const cPainel = car.custo_painel > 0 ? floatToStr(car.custo_painel) : '-';
+                const cDesp = car.custo_despachante > 0 ? floatToStr(car.custo_despachante) : '-';
+                const cFunil = car.custo_funilaria > 0 ? floatToStr(car.custo_funilaria) : '-';
+
+                // Custos restritos (null = não tem acesso)
+                const cCompra = isDono ? (car.custo_compra > 0 ? floatToStr(car.custo_compra) : '-') : LOCK;
+                const cFrete = isDono ? (car.custo_transporte > 0 ? floatToStr(car.custo_transporte) : '-') : LOCK;
+                const pVenda = isDono ? (car.preco_venda > 0 ? floatToStr(car.preco_venda) : '-') : LOCK;
+                const origem = isDono ? (car.origem || '-') : LOCK;
+                const destino = isDono ? (car.destino || '-') : LOCK;
+
+                let cTotal = '-', textoLucro = '-', corLucro = 'text-muted';
+                if (isDono) {
+                    const total = (car.custo_compra||0) + (car.custo_transporte||0) + (car.custo_taxas||0) +
+                                  (car.custo_geral||0) + (car.custo_painel||0) + (car.custo_despachante||0) + (car.custo_funilaria||0);
+                    const lucro = (car.preco_venda||0) - total;
+                    cTotal = floatToStr(total);
+                    if (car.preco_venda > 0) {
+                        textoLucro = floatToStr(lucro);
+                        corLucro = lucro > 0 ? 'text-success' : 'text-danger';
+                    }
+                }
+
+                // Custo 2 Hover
+                let listaCusto2HTML = '';
+                let detalhesArr = [];
+                try { detalhesArr = JSON.parse(car.custo_geral_detalhes); } catch(e){}
+                if (detalhesArr.length > 0) {
+                    listaCusto2HTML = detalhesArr.map(item =>
+                        `<div class="d-flex justify-content-between mb-1" style="font-size:0.8rem; border-bottom:1px dotted #555;">
+                            <span>${item.desc}</span><span>${floatToStr(item.val)}</span>
+                         </div>`).join('');
+                } else {
+                    listaCusto2HTML = '<span class="text-muted small">Nenhum gasto detalhado.</span>';
+                }
+                const cGeralVisual = car.custo_geral > 0 ? `
+                    <div class="tooltip-custo2 text-info" onclick="this.classList.toggle('fixado')">
+                        ${floatToStr(car.custo_geral)}
+                        <div class="tooltip-custo2-caixa">
+                            <strong class="d-block mb-2 text-white">Detalhamento do Custo 2</strong>
+                            ${listaCusto2HTML}
+                            <div class="mt-2 text-end fw-bold text-info border-top border-secondary pt-1">Total: ${floatToStr(car.custo_geral)}</div>
+                        </div>
+                    </div>` : '-';
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td class="text-start" data-label="Veículo">
+                            <strong>${car.modelo}</strong>
+                            <span class="d-inline ms-1 text-secondary">${car.ano} &middot; ${car.placa}</span>
+                        </td>
+                        <td data-label="Origem">${origem}</td>
+                        <td data-label="Destino">${destino}</td>
+                        <td data-label="Custo 1">${cCompra}</td>
+                        <td data-label="Frete">${cFrete}</td>
+                        <td data-label="Taxas">${cTaxas}</td>
+                        <td data-label="Custo 2">${cGeralVisual}</td>
+                        <td data-label="Painel">${cPainel}</td>
+                        <td data-label="Desp.">${cDesp}</td>
+                        <td data-label="Funilaria">${cFunil}</td>
+                        <td data-label="Custo Final" class="fw-bold ${isDono ? 'text-danger' : 'text-secondary'}">${isDono ? cTotal : LOCK}</td>
+                        <td data-label="Preço Venda" class="fw-bold ${isDono ? 'text-success' : 'text-secondary'}">${pVenda}</td>
+                        <td data-label="Lucro" class="fw-bold ${corLucro}">${isDono ? textoLucro : LOCK}</td>
+                        <td class="no-label">
+                            <div class="btn-group">
+                                <button class="btn btn-sm btn-outline-info" onclick="abrirDetalhes(${car.id})" title="Detalhes"><i class="bi bi-info-circle"></i></button>
+                                <button class="btn btn-sm btn-outline-light" onclick="abrirFicha(${car.id})" title="Editar"><i class="bi bi-pencil-square"></i></button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        // 4. NOVA COMPRA
+        const modalNovaCompra = new bootstrap.Modal(document.getElementById('modalNovaCompra'));
+        function abrirModalNovaCompra() { modalNovaCompra.show(); }
+
+        document.getElementById('formNovoCarro').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const dados = {
+                modelo: document.getElementById('ncModelo').value, placa: document.getElementById('ncPlaca').value,
+                ano: document.getElementById('ncAno').value, origem: document.getElementById('ncOrigem').value,
+                custo_compra: strToFloat(document.getElementById('ncCustoCompra').value)
+            };
+            await fetch('/api/frota', { method: 'POST', headers: apiHeaders, body: JSON.stringify(dados) });
+            document.getElementById('formNovoCarro').reset(); modalNovaCompra.hide(); carregarFrota();
+        });
+
+        // 5. EDIÇÃO (FICHA) E CUSTO 2 INTELIGENTE
+        const modalCustos = new bootstrap.Modal(document.getElementById('modalCustos'));
+
+        function abrirFicha(id) {
+            const car = frotaData.find(c => c.id === id);
+            placaAtualEditando = car.placa;
+            document.getElementById('fcId').value = car.id;
+
+            const isDono = car._isDono;
+
+            // Seções que SOMENTE o dono/sócio vê
+            const secsDono = ['secOrigemDestino', 'secCustoCompra', 'secFrete', 'secStatusVenda', 'secSocio', 'secDatas', 'secVisorTotal'];
+            secsDono.forEach(sid => { const el = document.getElementById(sid); if(el) el.style.display = isDono ? '' : 'none'; });
+
+            // Título indica permissão atual
+            document.getElementById('fcTitulo').innerHTML = isDono ?
+                `Editar Veículo <small class="text-success ms-2 fs-6">✔ Dono/Sócio</small>` :
+                `Editar Veículo <small class="text-warning ms-2 fs-6">⚠ Acesso Parcial</small>`;
+
+            if (isDono) {
+                document.getElementById('fcOrigem').value = car.origem || '';
+                document.getElementById('fcDestino').value = car.destino || '';
+                document.getElementById('fcCompra').value = floatToStr(car.custo_compra);
+                document.getElementById('fcTransporte').value = floatToStr(car.custo_transporte);
+                document.getElementById('fcStatus').value = car.status;
+                document.getElementById('fcVenda').value = floatToStr(car.preco_venda);
+                document.getElementById('fcSocio').value = car.socio || '';
+                document.getElementById('fcDono').value = car.dono || '';
+                
+                if (!car.dono) {
+                    document.getElementById('fcDono').classList.remove('d-none');
+                    document.getElementById('labelDono').classList.remove('d-none');
+                } else {
+                    document.getElementById('fcDono').classList.add('d-none');
+                    document.getElementById('labelDono').classList.add('d-none');
+                }
+
+                document.getElementById('fcDataCompra').value = car.data_compra || '';
+                document.getElementById('fcDataPagamento').value = car.data_pagamento || '';
+                document.getElementById('fcDataVenda').value = car.data_venda || '';
+            }
+
+            document.getElementById('fcTaxas').value = floatToStr(car.custo_taxas);
+            document.getElementById('fcDespachante').value = floatToStr(car.custo_despachante);
+            document.getElementById('fcFunilaria').value = floatToStr(car.custo_funilaria);
+            document.getElementById('fcPainel').value = floatToStr(car.custo_painel);
+
+            try { custo2Local = JSON.parse(car.custo_geral_detalhes) || []; } catch(e) { custo2Local = []; }
+            renderizarCusto2();
+            calcularAoVivo();
+            modalCustos.show();
+        }
+
+        // DETALHES DO VEÍCULO (popup com logs, datas, sócios)
+        const modalDetalhes = new bootstrap.Modal(document.getElementById('modalDetalhes'));
+        async function abrirDetalhes(id) {
+            const car = frotaData.find(c => c.id === id);
+            document.getElementById('detTitulo').textContent = `${car.modelo} — ${car.placa}`;
+
+            // Info geral visível para todos
+            document.getElementById('detAno').textContent = car.ano;
+            document.getElementById('detStatus').textContent = car.status;
+
+            const isDono = car._isDono;
+            const infoSection = document.getElementById('detInfoRestrita');
+            if (isDono) {
+                infoSection.style.display = '';
+                document.getElementById('detOrigem').textContent = car.origem || '—';
+                document.getElementById('detDestino').textContent = car.destino || '—';
+                document.getElementById('detSocio').textContent = car.socio || 'Nenhum';
+                document.getElementById('detDataCompra').textContent = car.data_compra ? new Date(car.data_compra + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
+                document.getElementById('detDataPagamento').textContent = car.data_pagamento ? new Date(car.data_pagamento + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
+                document.getElementById('detDataVenda').textContent = car.data_venda ? new Date(car.data_venda + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
+            } else {
+                infoSection.style.display = 'none';
+            }
+
+            // Carregar logs (somente dono/sócio)
+            const logContainer = document.getElementById('detLogs');
+            if (isDono) {
+                logContainer.innerHTML = '<p class="text-muted small">Carregando log...</p>';
+                try {
+                    const res = await fetch(`/api/frota/${id}/logs`, { headers: apiHeaders });
+                    const logs = await res.json();
+                    if (logs.length === 0) {
+                        logContainer.innerHTML = '<p class="text-muted small text-center">Nenhum log registrado.</p>';
+                    } else {
+                        logContainer.innerHTML = logs.map(l => {
+                            const dt = new Date(l.data_hora).toLocaleString('pt-BR');
+                            let detMap = '';
+                            try {
+                                const obj = JSON.parse(l.detalhes);
+                                detMap = Object.entries(obj).map(([k,v]) => {
+                                    const label = { modelo:'Modelo', placa:'Placa', ano:'Ano', origem:'Origem', destino:'Destino',
+                                        custo_compra:'Custo 1', preco_venda:'Preço Venda', status:'Status',
+                                        custo_taxas:'Taxas', custo_despachante:'Despachante', custo_funilaria:'Funilaria', custo_painel:'Painel' }[k] || k;
+                                    return `<span class="badge bg-secondary me-1">${label}: ${v}</span>`;
+                                }).join('');
+                            } catch(e) { detMap = `<span class="text-muted">${l.detalhes}</span>`; }
+                            return `
+                                <div class="border-bottom border-secondary pb-2 mb-2">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <strong class="text-white">${l.acao}</strong>
+                                        <small class="text-muted">${dt}</small>
+                                    </div>
+                                    <small class="text-muted">Por: <span class="text-info">${l.usuario}</span></small>
+                                    <div class="mt-1">${detMap}</div>
+                                </div>`;
+                        }).join('');
+                    }
+                } catch(e) {
+                    logContainer.innerHTML = `<p class="text-danger small">Erro ao carregar logs.</p>`;
+                }
+            } else {
+                logContainer.innerHTML = '<p class="text-warning small text-center"><i class="bi bi-lock me-1"></i>Log disponível somente para o dono/sócio do veículo.</p>';
+            }
+
+            modalDetalhes.show();
+        }
+
+        // Gestor do Custo 2
+        function adicionarCusto2() {
+            const desc = document.getElementById('c2Desc').value;
+            const val = strToFloat(document.getElementById('c2Valor').value);
+            if(desc && val > 0) {
+                custo2Local.push({ id: Date.now(), desc: desc, val: val });
+                document.getElementById('c2Desc').value = '';
+                document.getElementById('c2Valor').value = '';
+                renderizarCusto2();
+            }
+        }
+
+        function removerCusto2(id) {
+            custo2Local = custo2Local.filter(item => item.id !== id);
+            renderizarCusto2();
+        }
+
+        function renderizarCusto2() {
+            const lista = document.getElementById('listaCusto2');
+            lista.innerHTML = '';
+            let soma = 0;
+
+            custo2Local.forEach(item => {
+                soma += item.val;
+                lista.innerHTML += `
+                    <div class="lista-custo-item">
+                        <span class="text-white">${item.desc}</span>
+                        <div>
+                            <span class="text-info me-3">${floatToStr(item.val)}</span>
+                            <button type="button" class="btn btn-sm btn-outline-danger" style="padding: 2px 6px;" onclick="removerCusto2(${item.id})"><i class="bi bi-x"></i></button>
+                        </div>
+                    </div>
+                `;
+            });
+            document.getElementById('c2TotalVisor').innerText = floatToStr(soma);
+            calcularAoVivo(); // Força recálculo do total da ficha
+        }
+
+        function calcularAoVivo() {
+            const cCompra = strToFloat(document.getElementById('fcCompra').value);
+            const cTransp = strToFloat(document.getElementById('fcTransporte').value);
+            const cTaxas = strToFloat(document.getElementById('fcTaxas').value);
+            const cDesp = strToFloat(document.getElementById('fcDespachante').value);
+            const cFunil = strToFloat(document.getElementById('fcFunilaria').value);
+            const cPainel = strToFloat(document.getElementById('fcPainel').value);
+            const venda = strToFloat(document.getElementById('fcVenda').value);
+
+            // Soma o Custo 2 do array local
+            const cGeral = custo2Local.reduce((acc, item) => acc + item.val, 0);
+
+            const custoTotal = cCompra + cTransp + cTaxas + cDesp + cFunil + cPainel + cGeral;
+            const lucro = venda - custoTotal;
+
+            document.getElementById('visorCustoTotal').innerText = floatToStr(custoTotal);
+            const vLucro = document.getElementById('visorLucro');
+            vLucro.innerText = floatToStr(lucro);
+
+            if(lucro < 0 && venda > 0) { vLucro.classList.remove('text-success'); vLucro.classList.add('text-danger'); }
+            else { vLucro.classList.add('text-success'); vLucro.classList.remove('text-danger'); }
+        }
+
+        document.addEventListener('input', e => { if(e.target.classList.contains('calc-input')) calcularAoVivo(); });
+
+        async function puxarFrete() {
+            const res = await fetch(`/api/transportes/custo/${placaAtualEditando}`);
+            const data = await res.json();
+            if(data.valor > 0) {
+                document.getElementById('fcTransporte').value = floatToStr(data.valor);
+                calcularAoVivo(); alert(`Frete R$ ${data.valor.toFixed(2)} importado da Logística!`);
+            } else { alert("Nenhum frete encontrado para esta placa."); }
+        }
+
+        async function salvarFicha() {
+            const id = document.getElementById('fcId').value;
+            const car = frotaData.find(c => c.id == id);
+            const isDono = !car.dono || car.dono === usuarioLogado?.username || car.socio === usuarioLogado?.username;
+            const somaCusto2 = custo2Local.reduce((acc, item) => acc + item.val, 0);
+
+            let dados = {
+                // Campos que todos podem enviar (o servidor só aceita esses se não for dono)
+                custo_taxas: strToFloat(document.getElementById('fcTaxas').value),
+                custo_despachante: strToFloat(document.getElementById('fcDespachante').value),
+                custo_funilaria: strToFloat(document.getElementById('fcFunilaria').value),
+                custo_painel: strToFloat(document.getElementById('fcPainel').value),
+                custo_geral: somaCusto2,
+                custo_geral_detalhes: custo2Local,
+            };
+
+            if (isDono) {
+                const selectDono = document.getElementById('fcDono');
+                let novoDono = car.dono;
+                if (!car.dono && selectDono.value) { novoDono = selectDono.value; }
+                if (!car.dono && !selectDono.value) {
+                    alert("Por favor, selecione quem é o dono do veículo.");
+                    return;
+                }
+
+                // Campos exclusivos do dono
+                Object.assign(dados, {
+                    modelo: car.modelo, placa: car.placa, ano: car.ano,
+                    origem: document.getElementById('fcOrigem').value,
+                    destino: document.getElementById('fcDestino').value,
+                    custo_compra: strToFloat(document.getElementById('fcCompra').value),
+                    custo_transporte: strToFloat(document.getElementById('fcTransporte').value),
+                    status: document.getElementById('fcStatus').value,
+                    preco_venda: strToFloat(document.getElementById('fcVenda').value),
+                    socio: document.getElementById('fcSocio').value || null,
+                    dono: novoDono
+                });
+            }
+
+            await fetch(`/api/frota/${id}`, { method: 'PUT', headers: apiHeaders, body: JSON.stringify(dados) });
+            modalCustos.hide(); carregarFrota();
+        }
+
+        function excluirCarroAtivo() {
+            if(confirm("Remover definitivamente da base?")) {
+                fetch(`/api/frota/${document.getElementById('fcId').value}`, { method: 'DELETE' }).then(() => {
+                    modalCustos.hide(); carregarFrota();
+                });
+            }
+        }
+
+        async function carregarUsuariosDono() {
+            try {
+                const res = await fetch('/api/usuarios/lista');
+                const users = await res.json();
+                const sel = document.getElementById('fcDono');
+                users.forEach(u => {
+                    const opt = document.createElement('option');
+                    opt.value = u; opt.textContent = u;
+                    sel.appendChild(opt);
+                });
+            } catch(e) {}
+        }
+        
+        window.onload = () => { carregarFrota(); carregarUsuariosDono(); };
+    </script>
+
+    <!-- Botao export Excel -->
+
+    <div id="excel-btn-float" style="position:fixed;bottom:22px;right:22px;z-index:500">
+      <button onclick="exportarExcel()" style="background:rgba(22,22,22,.95);border:1px solid #22c55e;color:#22c55e;padding:9px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 2px 12px rgba(34,197,94,.2)">
+        <span style="font-size:16px">↓</span> Excel
+      </button>
+    </div>
+</body>
+</html>

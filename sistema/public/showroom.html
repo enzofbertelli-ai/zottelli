@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Showroom | Sistema Zottelli</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <script>
+        const _u = JSON.parse(sessionStorage.getItem('usuarioLogado') || 'null');
+        if (!_u) window.location.href = '/login.html';
+        function sair() { sessionStorage.removeItem('usuarioLogado'); window.location.href = '/login.html'; }
+    </script>
+    <style>
+        .main-content { padding-top: 24px; }
+        .page-title { font-size: 1.3rem; font-weight: 700; margin-bottom: 2px; }
+        .page-title span { color: var(--gold, #d4af37); }
+        .page-subtitle { font-size: 0.85rem; color: var(--muted); }
+
+        /* Stats Bar */
+        .stats-container { display: flex; gap: 12px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 8px; scrollbar-width: none; }
+        .stats-container::-webkit-scrollbar { display: none; }
+        .stat-card {
+            background: var(--bg2); border: 1px solid var(--border); border-radius: 12px;
+            padding: 12px 18px; min-width: 140px; display: flex; flex-direction: column; flex-shrink: 0;
+        }
+        .stat-value { font-size: 1.4rem; font-weight: 700; color: var(--gold, #d4af37); line-height: 1; margin-bottom: 4px; }
+        .stat-label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+
+        /* Vehicle Card (Bootstrap override) */
+        .car-card {
+            background: var(--bg2); border: 1px solid var(--border); border-radius: 12px;
+            overflow: hidden; transition: 0.2s; position: relative; height: 100%;
+        }
+        .car-card:hover { border-color: var(--gold, #d4af37); transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.4); }
+        
+        .car-card.inactive { opacity: 0.6; }
+        .car-card.vendido { border-color: var(--success); }
+        .car-card.vendido img { opacity: 0.7; filter: grayscale(60%); }
+
+        .sold-overlay {
+            position: absolute; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.6); pointer-events: none; border-radius: 12px;
+        }
+        .sold-stamp {
+            border: 3px solid var(--success); color: var(--success); font-size: 1.5rem; font-weight: 900;
+            padding: 5px 20px; transform: rotate(-15deg); letter-spacing: 2px; background: rgba(0,0,0,0.8);
+            text-shadow: 0 2px 4px rgba(0,0,0,0.8); box-shadow: 0 0 20px rgba(34,197,94,0.3); border-radius: 6px;
+        }
+
+        .car-photo { width: 100%; height: 190px; object-fit: cover; background: var(--bg); border-bottom: 1px solid var(--border); }
+        .car-photo-placeholder { 
+            width: 100%; height: 190px; background: var(--bg); border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: center; flex-direction: column; color: var(--muted); gap: 8px;
+        }
+        
+        .car-badges { position: absolute; top: 12px; left: 12px; display: flex; gap: 6px; z-index: 6; flex-wrap: wrap; }
+        .bdg { font-size: 0.65rem; padding: 4px 8px; border-radius: 20px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 2px 5px rgba(0,0,0,0.5); }
+        .bdg-destaque { background: var(--gold, #d4af37); color: #000; }
+        .bdg-inativo { background: var(--bg); border: 1px solid var(--border); color: var(--muted); }
+
+        .fipe-price { font-size: 0.8rem; color: var(--muted); text-decoration: line-through; margin-bottom: 0px; }
+        .car-price { font-size: 1.3rem; font-weight: 700; color: var(--gold, #d4af37); line-height: 1.1; margin-bottom: 8px; }
+
+        .vendido-info { font-size: 0.75rem; color: var(--success); margin-bottom: 8px; font-weight: 600; background: rgba(34,197,94,0.1); padding: 4px 8px; border-radius: 4px; display: inline-block;}
+
+        /* Photo Upload Dropzone */
+        .photo-upload-area { 
+            border: 2px dashed var(--border); border-radius: 12px; padding: 30px 20px; 
+            text-align: center; cursor: pointer; transition: 0.2s; position: relative; background: var(--bg); 
+        }
+        .photo-upload-area:hover, .photo-upload-area.drag { border-color: var(--gold, #d4af37); background: rgba(212,175,55,0.05); color: var(--gold, #d4af37); }
+        .photo-upload-area input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+        .photo-preview-img { max-width: 100%; max-height: 200px; border-radius: 8px; display: none; margin: 15px auto 0; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
+        
+        /* Modals Settings */
+        .modal-content.custom-dark { background-color: var(--bg2); border: 1px solid var(--border); border-radius: 16px; }
+
+        /* Switches */
+        .form-switch .form-check-input { width: 2.5em; height: 1.25em; background-color: var(--bg); border-color: var(--border); cursor: pointer; }
+        .form-switch .form-check-input:checked { background-color: var(--gold, #d4af37); border-color: var(--gold, #d4af37); }
+        .form-switch .form-check-input:focus { box-shadow: none; border-color: var(--gold, #d4af37); }
+
+        .toast-container { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); z-index: 2000; }
+
+        /* Mobile Adjustments */
+        @media (max-width: 767px) {
+            .sidebar { display: none !important; }
+            .main-content { margin-left: 0; padding: 16px; }
+            .btn-nova-desktop { display: none !important; }
+        }
+        @media (min-width: 768px) {
+            .toast-container { bottom: 20px; left: auto; right: 20px; transform: none; }
+        }
+        
+        .fab {
+            position: fixed; bottom: 24px; right: 24px; z-index: 1000;
+            width: 56px; height: 56px; border-radius: 50%; background: var(--gold, #d4af37);
+            color: #000; font-size: 1.5rem; display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 4px 15px rgba(212,175,55,0.4); border: none; transition: 0.2s;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <a href="index.html" class="brand-logo">ZOTTELLI<span style="color:var(--gold,#d4af37);">.</span></a>
+        <ul class="nav flex-column mt-2" id="sidebarNav"></ul>
+    </div>
+
+    <div class="main-content">
+        <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+            <div>
+                <h1 class="page-title"><i class="bi bi-car-front-fill me-1"></i>Showroom <span>/ Site</span></h1>
+                <p class="page-subtitle mb-0">Gerencie a vitrine pública de veículos</p>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="site.html" target="_blank" class="btn btn-outline-light border-secondary text-muted btn-sm d-flex align-items-center gap-2 px-3 fw-semibold">
+                    <i class="bi bi-globe"></i> Ver Site Público
+                </a>
+                <button class="btn btn-primary btn-nova-desktop d-flex align-items-center gap-2 px-3" onclick="abrirModal()" style="background:var(--gold,#d4af37);color:#000;border:none;font-weight:600;">
+                    <i class="bi bi-plus-lg"></i> Adicionar Veículo
+                </button>
+            </div>
+        </div>
+
+        <div class="stats-container">
+            <div class="stat-card">
+                <span class="stat-value" id="stat-total">—</span>
+                <span class="stat-label">Stock Total</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-value text-info" id="stat-ativos">—</span>
+                <span class="stat-label">Ativos no Site</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-value text-success" id="stat-vendidos">—</span>
+                <span class="stat-label">Vendidos (10d)</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-value text-warning" id="stat-destaques">—</span>
+                <span class="stat-label">Destaques ⭐</span>
+            </div>
+        </div>
+
+        <div class="row g-3" id="cars-grid"></div>
+    </div>
+
+    <button class="fab d-md-none" onclick="abrirModal()"><i class="bi bi-plus-lg"></i></button>
+
+    <!-- Modal Form -->
+    <div class="modal fade" id="carModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+            <div class="modal-content custom-dark">
+                <div class="modal-header border-secondary">
+                    <h5 class="modal-title fw-bold" id="modal-title">Adicionar Veículo</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form id="form-showroom" enctype="multipart/form-data">
+                        <input type="hidden" id="edit-id" value="">
+
+                        <div class="mb-4">
+                            <label class="form-label text-muted small fw-semibold">📸 Imagem Principal do Veículo</label>
+                            <div class="photo-upload-area" id="upload-area">
+                                <input type="file" id="input-foto" name="foto" accept="image/*" onchange="previewFoto(this)">
+                                <i class="bi bi-cloud-arrow-up text-muted mb-2 d-block" style="font-size:2rem;"></i>
+                                <span class="fw-semibold">Toque ou arraste a foto aqui</span>
+                                <div class="small text-muted mt-1">Formato paisagem preferível (Max 10MB)</div>
+                                <img id="foto-preview" class="photo-preview-img" alt="Preview">
+                            </div>
+                            <div id="foto-atual-info" class="small text-warning mt-2" style="display:none">
+                                <i class="bi bi-info-circle me-1"></i> A foto atual será mantida se você não enviar outra.
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-8 mb-3 mb-md-0">
+                                <label class="form-label text-muted small fw-semibold">Veículo (Marca/Modelo/Versão) *</label>
+                                <input type="text" class="form-control bg-dark text-white border-secondary" id="input-modelo" placeholder="Ex: Porsche 911 Carrera S" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label text-muted small fw-semibold">Ano</label>
+                                <input type="text" class="form-control bg-dark text-white border-secondary" id="input-ano" placeholder="Ex: 22/23">
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-5 mb-3 mb-md-0">
+                                <label class="form-label text-muted small fw-semibold">💰 Preço de Venda</label>
+                                <input type="text" class="form-control bg-dark text-white border-secondary" id="input-preco" placeholder="Ex: R$ 850.000">
+                            </div>
+                            <div class="col-md-5 mb-3 mb-md-0">
+                                <label class="form-label text-muted small fw-semibold">🏷️ Preço Antigo/FIPE (Aparece Riscado)</label>
+                                <input type="text" class="form-control bg-dark text-white border-secondary" id="input-preco-fipe" placeholder="Ex: R$ 920.000">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label text-muted small fw-semibold">Posição</label>
+                                <input type="number" class="form-control bg-dark text-white border-secondary text-center" id="input-ordem" placeholder="0" min="0">
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label text-muted small fw-semibold">📝 Descrição do Anúncio</label>
+                            <textarea class="form-control bg-dark text-white border-secondary" id="input-descricao" rows="4" placeholder="Detalhe diferenciais, km, estado de conservação, acessórios..."></textarea>
+                        </div>
+
+                        <div class="card bg-dark border-secondary mb-3">
+                            <div class="card-body py-3">
+                                <div class="form-check form-switch d-flex align-items-center justify-content-between mb-3 p-0">
+                                    <div class="d-flex flex-column">
+                                        <label class="form-check-label fw-bold" for="toggle-ativo"><i class="bi bi-globe me-1"></i> Publicar no site</label>
+                                        <span class="text-muted small">Veículo ficará no escuro se desativado.</span>
+                                    </div>
+                                    <input class="form-check-input ms-0 mt-0" type="checkbox" role="switch" id="toggle-ativo" checked>
+                                </div>
+                                <hr class="border-secondary my-2">
+                                <div class="form-check form-switch d-flex align-items-center justify-content-between p-0">
+                                    <div class="d-flex flex-column">
+                                        <label class="form-check-label fw-bold text-warning" for="toggle-destaque"><i class="bi bi-star-fill me-1"></i> Mega Destaque</label>
+                                        <span class="text-muted small">Sobe pro topo com selo Ouro.</span>
+                                    </div>
+                                    <input class="form-check-input ms-0 mt-0" type="checkbox" role="switch" id="toggle-destaque">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-end gap-2 border-top border-secondary pt-3 mt-4">
+                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Descartar</button>
+                            <button type="submit" class="btn px-4" style="background:var(--gold,#d4af37);color:#000;font-weight:bold;" id="btn-salvar">
+                                <i class="bi bi-save me-1"></i> Salvar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="sidebar.js"></script>
+    <script>
+        const user = JSON.parse(sessionStorage.getItem('usuarioLogado') || 'null');
+        if (!user || !user.username) { location.href = 'login.html'; }
+
+        let carros = [];
+        const modalEl = new bootstrap.Modal(document.getElementById('carModal'));
+
+        function showToast(msg, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const icon = type === 'success' ? '<i class="bi bi-check-circle-fill text-success"></i>' : '<i class="bi bi-exclamation-triangle-fill text-danger"></i>';
+            const html = `
+                <div class="toast align-items-center text-bg-dark border-0 mb-2 show" role="alert">
+                    <div class="d-flex px-1">
+                        <div class="toast-body d-flex align-items-center gap-2 fw-medium">${icon} ${msg}</div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                    </div>
+                </div>`;
+            container.insertAdjacentHTML('beforeend', html);
+            const tb = container.lastElementChild;
+            setTimeout(() => { tb.classList.remove('show'); setTimeout(()=>tb.remove(), 300); }, 3000);
+        }
+
+        function renderGrid(data) {
+            carros = data;
+            const grid = document.getElementById('cars-grid');
+            document.getElementById('stat-total').textContent = data.length;
+            document.getElementById('stat-ativos').textContent = data.filter(c => c.ativo && !c.vendido_em).length;
+            document.getElementById('stat-vendidos').textContent = data.filter(c => c.vendido_em).length;
+            document.getElementById('stat-destaques').textContent = data.filter(c => c.destaque).length;
+
+            if (!data.length) {
+                grid.innerHTML = `
+                <div class="col-12 text-center py-5 text-muted">
+                    <i class="bi bi-car-front fs-1 d-block mb-3 opacity-50"></i>
+                    <h5 class="fw-bold mb-2">Showroom Vazio</h5>
+                    <p class="mb-4">Nenhum veículo cadastrado na vitrine.</p>
+                    <button class="btn" style="background:var(--gold,#d4af37);color:#000;font-weight:600" onclick="abrirModal()">Inserir Primeiro Veículo</button>
+                </div>`;
+                return;
+            }
+
+            grid.innerHTML = data.map(c => {
+                const isVendido = !!c.vendido_em;
+                const diasRestantes = isVendido ? Math.max(0, 10 - Math.floor((Date.now() - new Date(c.vendido_em)) / 86400000)) : null;
+                
+                const fotoHtml = c.foto_url 
+                    ? `<img src="${c.foto_url}" alt="${c.modelo}" class="car-photo w-100" onerror="this.style.display='none'">`
+                    : `<div class="car-photo-placeholder w-100"><i class="bi bi-camera fs-2"></i>Sem foto</div>`;
+
+                return `
+                <div class="col-12 col-md-6 col-xl-4 col-xxl-3 d-flex align-items-stretch">
+                    <div class="car-card w-100 ${c.ativo ? '' : 'inactive'} ${isVendido ? 'vendido' : ''}">
+                        ${isVendido ? '<div class="sold-overlay"><div class="sold-stamp">VENDIDO</div></div>' : ''}
+                        
+                        <div class="car-badges">
+                            ${c.destaque ? '<span class="bdg bdg-destaque"><i class="bi bi-star-fill"></i> Destaque</span>' : ''}
+                            ${!c.ativo ? '<span class="bdg bdg-inativo"><i class="bi bi-eye-slash-fill"></i> Oculto</span>' : ''}
+                        </div>
+                        
+                        ${fotoHtml}
+                        
+                        <div class="p-3 d-flex flex-column" style="height: calc(100% - 190px);">
+                            <div class="mb-auto">
+                                <h5 class="fw-bold mb-1 text-white" style="font-size: 1.1rem; line-height: 1.2;">${c.modelo}</h5>
+                                <div class="text-muted small mb-2 d-flex gap-2">
+                                    ${c.ano ? `<span><i class="bi bi-calendar-event me-1"></i>${c.ano}</span>` : ''}
+                                    <span><i class="bi bi-sort-numeric-up me-1"></i>Pos: ${c.ordem}</span>
+                                </div>
+                                
+                                ${isVendido ? `<div class="vendido-info"><i class="bi bi-check2-circle"></i> Sucesso! Auto-delete em ${diasRestantes}d</div>` : ''}
+                                
+                                ${c.preco_fipe ? `<div class="fipe-price">${c.preco_fipe}</div>` : ''}
+                                ${c.preco ? `<div class="car-price">${c.preco}</div>` : ''}
+                            </div>
+                            
+                            <div class="border-top border-secondary pt-3 mt-3 d-flex gap-2">
+                                <button class="btn btn-outline-secondary btn-sm flex-grow-1 text-white border-secondary" onclick="editarCarro(${c.id})"><i class="bi bi-pencil"></i> Editar</button>
+                                
+                                <button class="btn btn-sm flex-grow-1 border-secondary fw-semibold ${isVendido ? 'btn-success text-white' : 'btn-outline-light text-muted'}" onclick="marcarVendido(${c.id}, ${isVendido})">
+                                    ${isVendido ? '<i class="bi bi-arrow-counterclockwise"></i> Voltar' : '<i class="bi bi-bag-check"></i> Vendido'}
+                                </button>
+                                
+                                <button class="btn btn-outline-danger btn-sm px-2 border-secondary" onclick="excluirCarro(${c.id}, '${c.modelo.replace(/'/g, "\\'")}')"><i class="bi bi-trash3"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        async function carregarShowroom() {
+            try {
+                const r = await fetch('/api/showroom?todos=1', { headers: { 'x-username': user.username } });
+                renderGrid(await r.json());
+            } catch(e) { showToast('Erro ao carregar os dados', 'error'); }
+        }
+
+        async function marcarVendido(id, jaVendido) {
+            try {
+                await fetch(`/api/showroom/${id}/vendido`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', 'x-username': user.username },
+                    body: JSON.stringify({ vendido: !jaVendido })
+                });
+                showToast(jaVendido ? 'Carro de volta a vitrine!' : 'Venda confirmada! Oculto em 10 dias.');
+                carregarShowroom();
+            } catch(e) { showToast('Erro ao registrar', 'error'); }
+        }
+
+        function abrirModal(id = null) {
+            document.getElementById('form-showroom').reset();
+            document.getElementById('foto-preview').style.display = 'none';
+            document.getElementById('foto-atual-info').style.display = 'none';
+            document.getElementById('edit-id').value = '';
+            
+            document.getElementById('toggle-ativo').checked = true;
+            document.getElementById('toggle-destaque').checked = false;
+
+            document.getElementById('modal-title').innerHTML = '<i class="bi bi-cloud-arrow-up me-2 text-secondary"></i> Inserir no Site';
+
+            if (id) {
+                const c = carros.find(x => x.id === id);
+                if (!c) return;
+                document.getElementById('modal-title').innerHTML = '<i class="bi bi-pencil me-2 text-secondary"></i> Editar Veículo';
+                document.getElementById('edit-id').value = c.id;
+                document.getElementById('input-modelo').value = c.modelo;
+                document.getElementById('input-ano').value = c.ano || '';
+                document.getElementById('input-preco').value = c.preco || '';
+                document.getElementById('input-preco-fipe').value = c.preco_fipe || '';
+                document.getElementById('input-ordem').value = c.ordem ?? 0;
+                document.getElementById('input-descricao').value = c.descricao || '';
+                
+                document.getElementById('toggle-ativo').checked = !!c.ativo;
+                document.getElementById('toggle-destaque').checked = !!c.destaque;
+                
+                if (c.foto_url) {
+                    const prev = document.getElementById('foto-preview');
+                    prev.src = c.foto_url;
+                    prev.style.display = 'block';
+                    document.getElementById('foto-atual-info').style.display = 'block';
+                }
+            }
+            modalEl.show();
+        }
+
+        function editarCarro(id) { abrirModal(id); }
+
+        async function excluirCarro(id, nome) {
+            if (!confirm(`Remover "${nome}" defitinivamente? A foto também será deletada do HD.`)) return;
+            try {
+                await fetch(`/api/showroom/${id}`, { method: 'DELETE', headers: { 'x-username': user.username } });
+                showToast('Veículo excluído!');
+                carregarShowroom();
+            } catch(e) { showToast('Falha ao excluir', 'error'); }
+        }
+
+        function previewFoto(input) {
+            if (!input.files[0]) return;
+            const reader = new FileReader();
+            reader.onload = e => {
+                const img = document.getElementById('foto-preview');
+                img.src = e.target.result;
+                img.style.display = 'block';
+            };
+            reader.readAsDataURL(input.files[0]);
+        }
+
+        document.getElementById('form-showroom').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('edit-id').value;
+            const btn = document.getElementById('btn-salvar');
+            btn.disabled = true; 
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Enviando...';
+
+            const fd = new FormData();
+            fd.append('modelo', document.getElementById('input-modelo').value.trim());
+            fd.append('ano', document.getElementById('input-ano').value.trim());
+            fd.append('preco', document.getElementById('input-preco').value.trim());
+            fd.append('preco_fipe', document.getElementById('input-preco-fipe').value.trim());
+            fd.append('descricao', document.getElementById('input-descricao').value.trim());
+            fd.append('ordem', document.getElementById('input-ordem').value || '0');
+            fd.append('ativo', document.getElementById('toggle-ativo').checked ? '1' : '0');
+            fd.append('destaque', document.getElementById('toggle-destaque').checked ? '1' : '0');
+            
+            const fotoInput = document.getElementById('input-foto');
+            if (fotoInput.files[0]) fd.append('foto', fotoInput.files[0]);
+
+            try {
+                const url = id ? `/api/showroom/${id}` : '/api/showroom';
+                const method = id ? 'PUT' : 'POST';
+                const r = await fetch(url, { method, headers: { 'x-username': user.username }, body: fd });
+                const data = await r.json();
+                if (data.erro) throw new Error(data.erro);
+                showToast(id ? 'Veículo atualizado!' : 'Veículo no ar!');
+                modalEl.hide();
+                carregarShowroom();
+            } catch(err) {
+                showToast(err.message || 'Falha ao sincronizar com o site', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-save me-1"></i> Salvar';
+            }
+        });
+
+        const uploadArea = document.getElementById('upload-area');
+        uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.classList.add('drag'); });
+        uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('drag'));
+        uploadArea.addEventListener('drop', e => {
+            e.preventDefault(); uploadArea.classList.remove('drag');
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) {
+                const dt = new DataTransfer(); dt.items.add(file);
+                document.getElementById('input-foto').files = dt.files;
+                previewFoto(document.getElementById('input-foto'));
+            }
+        });
+
+        buildSidebar('showroom.html');
+        carregarShowroom();
+    </script>
+</body>
+</html>

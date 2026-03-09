@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compras | Sistema Zottelli</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <script>
+        const _u = JSON.parse(sessionStorage.getItem('usuarioLogado') || 'null');
+        if (!_u) window.location.href = '/login.html';
+        function sair() { sessionStorage.removeItem('usuarioLogado'); window.location.href = '/login.html'; }
+    </script>
+    <style>
+        .main-content { padding-top: 24px; }
+        .page-title { font-size: 1.3rem; font-weight: 700; margin-bottom: 2px; }
+        .page-title span { color: var(--gold, #d4af37); }
+        .page-subtitle { font-size: 0.85rem; color: var(--muted); }
+
+        /* Scrollable filter buttons */
+        .filters-container { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 16px; scrollbar-width: none; }
+        .filters-container::-webkit-scrollbar { display: none; }
+        .filter-btn { 
+            padding: 6px 14px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; white-space: nowrap;
+            border: 1px solid var(--border); background: var(--bg2); color: var(--muted); transition: 0.2s;
+        }
+        .filter-btn.active, .filter-btn:hover { border-color: var(--gold, #d4af37); color: var(--gold, #d4af37); background: rgba(212,175,55,0.08); }
+
+        /* Card Customizations */
+        .compra-card { 
+            background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 16px; 
+            border-left: 4px solid transparent; transition: 0.2s;
+        }
+        .compra-card:hover { border-color: var(--gold, #d4af37); }
+        
+        .compra-card.tag-Descartado { border-left-color: var(--danger); opacity: 0.65; }
+        .compra-card.tag-Esperando { border-left-color: var(--muted); }
+        .compra-card.tag-Proposta { border-left-color: #3b82f6; } /* Azul Bootstrap primary approx */
+        .compra-card.tag-Ligar { border-left-color: var(--success); }
+        .compra-card.tag-Comprado { border-left-color: var(--gold, #d4af37); }
+
+        .tag-badge { padding: 4px 10px; border-radius: 20px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
+        .tag-descartado-b { background: rgba(248,81,73,0.15); color: var(--danger); }
+        .tag-esperando-b { background: rgba(139,148,158,0.15); color: var(--muted); }
+        .tag-proposta-b { background: rgba(59,130,246,0.15); color: #79c0ff; }
+        .tag-ligar-b { background: rgba(63,185,80,0.15); color: var(--success); }
+        .tag-comprado-b { background: rgba(212,175,55,0.15); color: var(--gold, #d4af37); }
+
+        .fipe-value { font-size: 1.1rem; font-weight: 700; color: var(--gold, #d4af37); }
+        .prazo-urgente { color: var(--danger); font-weight: 600; }
+        .prazo-ok { color: var(--success); }
+        
+        .card-proposta { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-size: 0.8rem; margin-top: 10px; }
+        .card-notas { font-size: 0.8rem; color: var(--text); background: rgba(255,255,255,0.03); border-radius: 8px; padding: 10px 12px; margin-top: 10px; line-height: 1.5; border-left: 2px solid var(--border); }
+
+        .actions-col { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; justify-content: flex-start; }
+        
+        /* Modal Adjustments */
+        .modal-content.custom-dark { background-color: var(--bg2); border: 1px solid var(--border); border-radius: 16px; }
+        
+        /* FAB */
+        .fab {
+            position: fixed; bottom: 24px; right: 24px; z-index: 1000;
+            width: 56px; height: 56px; border-radius: 50%; background: var(--gold, #d4af37);
+            color: #000; font-size: 1.5rem; display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 4px 15px rgba(212,175,55,0.4); border: none; transition: 0.2s;
+        }
+
+        .toast-container { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); z-index: 2000; }
+
+        @media (max-width: 767px) {
+            .sidebar { display: none !important; }
+            .main-content { margin-left: 0; padding: 16px; }
+            .btn-nova-desktop { display: none !important; }
+            .actions-col { flex-direction: row; justify-content: flex-start; margin-top: 12px; }
+        }
+        @media (min-width: 768px) {
+            .fab { display: none !important; }
+            .toast-container { bottom: 20px; left: auto; right: 20px; transform: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <a href="index.html" class="brand-logo">ZOTTELLI<span style="color:var(--gold,#d4af37);">.</span></a>
+        <ul class="nav flex-column mt-2" id="sidebarNav"></ul>
+    </div>
+
+    <div class="main-content">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <h1 class="page-title"><i class="bi bi-cart3 me-1"></i>Compras <span>/ Avaliações</span></h1>
+                <p class="page-subtitle mb-0">Gerencie oportunidades de compra de veículos</p>
+            </div>
+            <button class="btn btn-primary btn-nova-desktop d-flex align-items-center gap-2" onclick="abrirModal()" style="background:var(--gold,#d4af37);color:#000;border:none;font-weight:600;">
+                <i class="bi bi-plus-lg"></i> Adicionar
+            </button>
+        </div>
+
+        <div class="filters-container" id="filters">
+            <button class="filter-btn active" data-filtro="todos" onclick="filtrar(this)">Todos</button>
+            <button class="filter-btn" data-filtro="Esperando" onclick="filtrar(this)">⏳ Esperando</button>
+            <button class="filter-btn" data-filtro="Proposta Feita" onclick="filtrar(this)">💬 Proposta Feita</button>
+            <button class="filter-btn" data-filtro="Ligar pra Concessionária" onclick="filtrar(this)">📞 Ligar</button>
+            <button class="filter-btn" data-filtro="Descartado" onclick="filtrar(this)">🚫 Descartado</button>
+            <button class="filter-btn" data-filtro="Comprado" onclick="filtrar(this)">🏆 Comprado</button>
+        </div>
+
+        <div class="row" id="cards-list">
+            <div class="col-12 text-center p-5 text-muted">
+                <p>Nenhuma oportunidade cadastrada.</p>
+            </div>
+        </div>
+    </div>
+
+    <button class="fab" onclick="abrirModal()"><i class="bi bi-plus-lg"></i></button>
+
+    <!-- Modal Adicionar/Editar -->
+    <div class="modal fade" id="compraModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content custom-dark">
+                <div class="modal-header border-secondary">
+                    <h5 class="modal-title fw-bold" id="modal-title">Adicionar Oportunidade</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form id="form-compra" onsubmit="salvar(event)">
+                        <input type="hidden" id="edit-id">
+
+                        <div class="row mb-3">
+                            <div class="col-md-7 mb-3 mb-md-0">
+                                <label class="form-label text-muted small fw-semibold">🚗 Modelo / Nome do Veículo *</label>
+                                <input type="text" class="form-control bg-dark text-white border-secondary" id="input-modelo" placeholder="Ex: Hilux SW4 2023 Diesel" required>
+                            </div>
+                            <div class="col-md-5">
+                                <label class="form-label text-muted small fw-semibold">🔗 Link do Anúncio</label>
+                                <input type="url" class="form-control bg-dark text-white border-secondary" id="input-link" placeholder="https://...">
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6 mb-3 mb-md-0">
+                                <label class="form-label text-muted small fw-semibold">💰 FIPE / Preço Pedido</label>
+                                <input type="text" class="form-control bg-dark text-white border-secondary" id="input-fipe" placeholder="R$ 0,00">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label text-muted small fw-semibold">📅 Prazo Encerramento</label>
+                                <input type="date" class="form-control bg-dark text-white border-secondary" id="input-prazo">
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6 mb-3 mb-md-0">
+                                <label class="form-label text-muted small fw-semibold">🏷 Status / Tag</label>
+                                <select class="form-select bg-dark text-white border-secondary" id="input-tag">
+                                    <option value="Esperando" selected>⏳ Esperando</option>
+                                    <option value="Ligar pra Concessionária">📞 Ligar pra Concessionária</option>
+                                    <option value="Proposta Feita">💬 Proposta Feita</option>
+                                    <option value="Descartado">🚫 Descartado</option>
+                                    <option value="Comprado">🏆 Comprado</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label text-muted small fw-semibold">💬 Nossa Proposta</label>
+                                <input type="text" class="form-control bg-dark text-white border-secondary" id="input-proposta" placeholder="R$ 0,00">
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label text-muted small fw-semibold">📝 Notas / Observações</label>
+                            <textarea class="form-control bg-dark text-white border-secondary" id="input-notas" rows="3" placeholder="Detalhes de km, opcionais..."></textarea>
+                        </div>
+
+                        <div class="d-flex justify-content-end gap-2 border-top border-secondary pt-3">
+                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn" style="background:var(--gold,#d4af37);color:#000;font-weight:bold;">💾 Salvar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="sidebar.js"></script>
+    <script>
+        const user = JSON.parse(sessionStorage.getItem('usuarioLogado') || 'null');
+        if (!user || !user.username) { location.href = 'login.html'; }
+        if (user.cargo !== 'admin') { alert('Acesso restrito a administradores.'); location.href = 'index.html'; }
+
+        let todasCompras = [];
+        let filtroAtual = 'todos';
+        const modalEl = new bootstrap.Modal(document.getElementById('compraModal'));
+
+        function showToast(msg, type='success') {
+            const container = document.getElementById('toastContainer');
+            const icon = type === 'success' ? '<i class="bi bi-check-circle-fill text-success"></i>' : '<i class="bi bi-exclamation-triangle-fill text-danger"></i>';
+            const html = `
+                <div class="toast align-items-center text-bg-dark border-0 mb-2 show" role="alert">
+                    <div class="d-flex px-1">
+                        <div class="toast-body d-flex align-items-center gap-2 fw-medium">${icon} ${msg}</div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                    </div>
+                </div>`;
+            container.insertAdjacentHTML('beforeend', html);
+            const tb = container.lastElementChild;
+            setTimeout(() => { tb.classList.remove('show'); setTimeout(()=>tb.remove(), 300); }, 3000);
+        }
+
+        const TAG_MAP = {
+            'Descartado': { cls: 'tag-descartado-b', icon: '🚫' },
+            'Esperando': { cls: 'tag-esperando-b', icon: '⏳' },
+            'Proposta Feita': { cls: 'tag-proposta-b', icon: '💬' },
+            'Ligar pra Concessionária': { cls: 'tag-ligar-b', icon: '📞' },
+            'Comprado': { cls: 'tag-comprado-b', icon: '🏆' }
+        };
+
+        function tagBadge(tag) {
+            const t = TAG_MAP[tag] || { cls: 'tag-esperando-b', icon: '⏳' };
+            return `<span class="tag-badge ${t.cls}">${t.icon} ${tag}</span>`;
+        }
+
+        function prazoInfo(prazo) {
+            if (!prazo) return '';
+            const dias = Math.ceil((new Date(prazo) - new Date()) / 86400000);
+            if (dias < 0) return `<span class="prazo-urgente small"><i class="bi bi-exclamation-circle-fill"></i> Encerrado há ${-dias}d</span>`;
+            if (dias === 0) return `<span class="prazo-urgente small"><i class="bi bi-clock-fill"></i> Encerra hoje!</span>`;
+            if (dias <= 3) return `<span class="prazo-urgente small">⏰ ${dias}d restantes</span>`;
+            return `<span class="prazo-ok small">📅 ${dias}d restantes</span>`;
+        }
+
+        function renderCards(data) {
+            const list = document.getElementById('cards-list');
+            if (!data.length) {
+                list.innerHTML = `<div class="col-12 text-center p-5 text-muted"><i class="bi bi-cart-x fs-1 d-block mb-3 opacity-50"></i><p>Nenhuma oportunidade encontrada nesta categoria.</p></div>`;
+                return;
+            }
+            
+            list.innerHTML = data.map(c => {
+                let tagClass = `tag-${(c.tag || 'Esperando').split(' ')[0]}`;
+                
+                return `
+                <div class="col-12">
+                    <div class="compra-card ${tagClass} p-3 p-md-4">
+                        <div class="row g-3">
+                            <div class="col-md-9">
+                                <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                                    <h5 class="mb-0 fw-bold text-white">${c.modelo || 'Veículo sem nome'}</h5>
+                                    ${tagBadge(c.tag)}
+                                </div>
+                                
+                                <div class="d-flex flex-wrap gap-3 gap-md-4 mb-3">
+                                    ${c.preco_fipe ? `<div class="text-muted small">FIPE / Pedido<br><span class="fipe-value">${c.preco_fipe}</span></div>` : ''}
+                                    ${c.prazo_encerramento ? `<div class="text-muted small">Encerramento<br>${prazoInfo(c.prazo_encerramento)}</div>` : ''}
+                                    <div class="text-muted small">Criado por<br><strong class="text-white">${c.criado_por || '—'}</strong></div>
+                                    <div class="text-muted small">Data<br><strong class="text-white">${c.criado_em ? new Date(c.criado_em).toLocaleDateString('pt-BR') : '—'}</strong></div>
+                                </div>
+                                
+                                ${c.link ? `<div><a href="${c.link}" target="_blank" class="text-decoration-none small text-info"><i class="bi bi-box-arrow-up-right me-1"></i>Acessar anúncio original</a></div>` : ''}
+                                
+                                ${c.proposta ? `<div class="card-proposta"><strong class="d-block mb-1 text-white opacity-75"><i class="bi bi-chat-quote me-1"></i>Proposta enviada:</strong><span class="text-white fw-medium">${c.proposta}</span></div>` : ''}
+                                ${c.notas ? `<div class="card-notas"><i class="bi bi-journal-text opacity-50 me-1"></i> ${c.notas}</div>` : ''}
+                            </div>
+                            
+                            <div class="col-md-3 actions-col border-md-start border-secondary ps-md-3">
+                                <button class="btn btn-outline-secondary btn-sm w-100 text-light mb-2" onclick="editarCompra(${c.id})"><i class="bi bi-pencil me-1"></i> Editar</button>
+                                <button class="btn btn-outline-danger btn-sm w-100" onclick="excluirCompra(${c.id})"><i class="bi bi-trash3 me-1"></i> Excluir</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function filtrar(btn) {
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            filtroAtual = btn.dataset.filtro;
+            const filtrados = filtroAtual === 'todos' ? todasCompras : todasCompras.filter(c => c.tag === filtroAtual);
+            renderCards(filtrados);
+        }
+
+        async function carregarCompras() {
+            try {
+                const r = await fetch('/api/compras', { headers: { 'x-username': user.username } });
+                todasCompras = await r.json();
+                const filtrados = filtroAtual === 'todos' ? todasCompras : todasCompras.filter(c => c.tag === filtroAtual);
+                renderCards(filtrados);
+            } catch(e) { showToast('Erro ao carregar do servidor', 'error'); }
+        }
+
+        function abrirModal(id = null) {
+            document.getElementById('form-compra').reset();
+            document.getElementById('edit-id').value = '';
+            document.getElementById('modal-title').innerHTML = '<i class="bi bi-cart-plus me-2 text-secondary"></i>Adicionar Oportunidade';
+            
+            if (id) {
+                const c = todasCompras.find(x => x.id === id);
+                if (!c) return;
+                document.getElementById('modal-title').innerHTML = '<i class="bi bi-pencil me-2 text-secondary"></i>Editar Oportunidade';
+                document.getElementById('edit-id').value = c.id;
+                document.getElementById('input-modelo').value = c.modelo || '';
+                document.getElementById('input-link').value = c.link || '';
+                document.getElementById('input-fipe').value = c.preco_fipe || '';
+                document.getElementById('input-prazo').value = c.prazo_encerramento || '';
+                document.getElementById('input-tag').value = c.tag || 'Esperando';
+                document.getElementById('input-proposta').value = c.proposta || '';
+                document.getElementById('input-notas').value = c.notas || '';
+            }
+            modalEl.show();
+            setTimeout(() => document.getElementById('input-modelo').focus(), 500);
+        }
+
+        function editarCompra(id) { abrirModal(id); }
+
+        async function salvar(e) {
+            e.preventDefault();
+            const id = document.getElementById('edit-id').value;
+            const body = {
+                modelo: document.getElementById('input-modelo').value.trim(),
+                link: document.getElementById('input-link').value.trim(),
+                preco_fipe: document.getElementById('input-fipe').value.trim(),
+                prazo_encerramento: document.getElementById('input-prazo').value,
+                tag: document.getElementById('input-tag').value,
+                status: document.getElementById('input-tag').value === 'Comprado' ? 'Comprado' : 'Avaliando',
+                proposta: document.getElementById('input-proposta').value.trim(),
+                notas: document.getElementById('input-notas').value.trim(),
+            };
+            try {
+                const r = await fetch(id ? `/api/compras/${id}` : '/api/compras', {
+                    method: id ? 'PUT' : 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-username': user.username },
+                    body: JSON.stringify(body)
+                });
+                const data = await r.json();
+                if (data.erro) throw new Error(data.erro);
+                showToast(id ? 'Atualizado!' : 'Oportunidade adicionada na pipeline!');
+                modalEl.hide(); 
+                carregarCompras();
+            } catch(err) { showToast(err.message || 'Erro', 'error'); }
+        }
+
+        async function excluirCompra(id) {
+            if (!confirm('Excluir esta oportunidade definitivamente?')) return;
+            await fetch(`/api/compras/${id}`, { method: 'DELETE', headers: { 'x-username': user.username } });
+            showToast('Removido!'); 
+            carregarCompras();
+        }
+
+        buildSidebar('compras.html');
+        carregarCompras();
+    </script>
+</body>
+</html>

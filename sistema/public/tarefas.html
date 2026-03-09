@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tarefas | Zottelli</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <script>
+        const _u = JSON.parse(sessionStorage.getItem('usuarioLogado') || 'null');
+        if (!_u) window.location.href = '/login.html';
+        function sair() { sessionStorage.removeItem('usuarioLogado'); window.location.href = '/login.html'; }
+    </script>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* Mobile-First Layout Tuning */
+        .main-content { display: flex; flex-direction: column; overflow: hidden; height: 100vh; padding: 0 !important; }
+        .page-header { flex-shrink: 0; padding: 20px 24px 10px; }
+        
+        .page-title { font-size: 1.25rem; font-weight: 700; margin-bottom: 0px; }
+        .page-title span { color: var(--gold, #d4af37); }
+        
+        /* ── Scrollable Horizontal Tabs ── */
+        .nav-tabs-custom { 
+            display: flex; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden;
+            border-bottom: 1px solid var(--border); padding: 0 16px; margin-bottom: 0; 
+            background: var(--bg); flex-shrink: 0;
+        }
+        .nav-tabs-custom::-webkit-scrollbar { display: none; }
+        .nav-tabs-custom .nav-link {
+            border: none; border-bottom: 2px solid transparent; color: var(--muted);
+            white-space: nowrap; font-weight: 600; font-size: 0.85rem; padding: 12px 16px; border-radius: 0;
+        }
+        .nav-tabs-custom .nav-link.active {
+            color: var(--gold, #d4af37); border-bottom-color: var(--gold, #d4af37); background: transparent;
+        }
+        .nav-tabs-custom .badge-cnt {
+            background: var(--bg2); color: var(--muted); font-size: 0.7rem; margin-left: 6px; padding: 3px 6px; border-radius: 12px;
+        }
+        .nav-tabs-custom .nav-link.active .badge-cnt { background: rgba(212,175,55,0.15); color: var(--gold, #d4af37); }
+
+        /* ── Task List Area ── */
+        .task-list-container { flex: 1; overflow-y: auto; padding: 16px 20px 90px 20px; background: var(--bg); }
+        
+        /* ── Task Card Bootstrap overrides ── */
+        .task-card { border-radius: 12px; margin-bottom: 12px; border-left: 4px solid transparent; background: var(--bg2); border: 1px solid var(--border); overflow: hidden; }
+        .task-card.prio-Urgente { border-left-color: var(--danger); border-left-width: 4px; }
+        .task-card.prio-Alta    { border-left-color: var(--warning); border-left-width: 4px; }
+        .task-card.prio-Normal  { border-left-color: #3b82f6; border-left-width: 4px; }
+        .task-card.prio-Baixa   { border-left-color: var(--muted); border-left-width: 4px; }
+        .task-card.done { opacity: 0.6; }
+
+        .task-check { 
+            width: 24px; height: 24px; border: 2px solid var(--border); border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; flex-shrink: 0; margin-top: 2px;
+        }
+        .task-card.done .task-check { background: var(--success); border-color: var(--success); color: #fff; }
+        .task-check:hover { border-color: var(--gold, #d4af37); }
+        .task-card.done .task-check::before { content: '\F26E'; font-family: bootstrap-icons; font-size: 14px; }
+
+        .task-title { font-weight: 600; font-size: 0.95rem; line-height: 1.3; color: var(--text); }
+        .task-card.done .task-title { text-decoration: line-through; color: var(--muted); }
+
+        .prio-bdg { font-size: 0.65rem; padding: 4px 8px; border-radius: 20px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+        .prio-bdg.Urgente { background: rgba(248,81,73,0.15); color: var(--danger); }
+        .prio-bdg.Alta { background: rgba(210,153,34,0.15); color: var(--warning); }
+        .prio-bdg.Normal { background: rgba(59,130,246,0.15); color: #79c0ff; }
+        .prio-bdg.Baixa { background: rgba(139,148,158,0.15); color: var(--muted); }
+
+        .task-desc { font-size: 0.8rem; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-top: 6px; }
+        .task-meta { font-size: 0.75rem; color: var(--muted); margin-top: 8px; display: flex; gap: 12px; flex-wrap: wrap; }
+        .prazo-urgente { color: var(--danger); font-weight: 600; }
+
+        /* Actions row */
+        .card-footer-actions { display: flex; border-top: 1px solid var(--border); background: var(--bg2); padding: 0; }
+        .btn-action { 
+            flex: 1; background: transparent; border: none; padding: 10px; font-size: 0.75rem; 
+            font-weight: 600; color: var(--muted); cursor: pointer; transition: 0.2s;
+        }
+        .btn-action:not(:last-child) { border-right: 1px solid var(--border); }
+        .btn-action:hover { background: var(--bg); color: var(--text); }
+        .btn-action.text-success:hover { background: rgba(63,185,80,0.1); }
+        .btn-action.text-warning:hover { background: rgba(210,153,34,0.1); }
+        .btn-action.text-danger:hover { background: rgba(248,81,73,0.1); }
+
+        /* ── Mobile FAB ── */
+        .fab {
+            position: fixed; bottom: 24px; right: 24px; z-index: 1000;
+            width: 56px; height: 56px; border-radius: 50%; background: var(--gold, #d4af37);
+            color: #000; font-size: 1.5rem; display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 4px 15px rgba(212,175,55,0.4); border: none; cursor: pointer; transition: 0.2s;
+        }
+        .fab:active { transform: scale(0.95); }
+
+        /* ── Modals adjustments ── */
+        .modal-content.custom-dark { background-color: var(--bg2); border: 1px solid var(--border); border-radius: 16px; }
+        .modal-header { border-bottom: 1px solid var(--border); }
+        .modal-footer { border-top: 1px solid var(--border); }
+        
+        .prio-picker { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+        .prio-opt { 
+            text-align: center; padding: 12px 4px; border: 2px solid var(--border); border-radius: 8px;
+            background: var(--bg); color: var(--muted); font-size: 0.7rem; font-weight: 700; cursor: pointer; transition: 0.2s;
+        }
+        .prio-opt[data-p="Urgente"].selected { border-color: var(--danger); background: rgba(248,81,73,0.1); color: var(--danger); }
+        .prio-opt[data-p="Alta"].selected { border-color: var(--warning); background: rgba(210,153,34,0.1); color: var(--warning); }
+        .prio-opt[data-p="Normal"].selected { border-color: #3b82f6; background: rgba(59,130,246,0.1); color: #79c0ff; }
+        .prio-opt[data-p="Baixa"].selected { border-color: var(--muted); background: rgba(139,148,158,0.1); color: var(--text); }
+
+        .toast-container { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); z-index: 2000; }
+        
+        @media (min-width: 768px) {
+            .sidebar { display: flex !important; }
+            .fab { display: none !important; }
+            .main-content { margin-left: var(--sidebar-w, 220px); }
+            .page-header { padding: 30px 35px 15px; }
+            .nav-tabs-custom { padding: 0 35px; }
+            .task-list-container { padding: 24px 35px; }
+            .toast-container { bottom: 20px; left: auto; right: 20px; transform: none; }
+        }
+        @media (max-width: 767px) {
+            .sidebar { display: none !important; }
+            .btn-nova-desktop { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <a href="index.html" class="brand-logo">ZOTTELLI<span style="color:var(--gold,#d4af37);">.</span></a>
+        <ul class="nav flex-column mt-2" id="sidebarNav"></ul>
+    </div>
+
+    <div class="main-content">
+        <div class="page-header d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="page-title"><i class="bi bi-ui-checks me-1"></i>Tarefas <span>& To-Do</span></h1>
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-outline-success btn-sm d-none d-md-flex align-items-center gap-2" onclick="exportarExcel()"><i class="bi bi-file-earmark-excel"></i> Excel</button>
+                <button class="btn btn-primary d-none d-md-flex align-items-center gap-2 btn-nova-desktop" onclick="abrirModal()" style="background:var(--gold,#d4af37);color:#000;border:none;font-weight:600;"><i class="bi bi-plus-lg"></i> Nova Tarefa</button>
+            </div>
+        </div>
+
+        <div class="nav-tabs-custom" id="status-tabs">
+            <button class="nav-link active" data-status="todos" onclick="trocarTab(this)">Todas <span class="badge-cnt" id="cnt-todos">0</span></button>
+            <button class="nav-link" data-status="Pendente" onclick="trocarTab(this)">⏳ Pendente <span class="badge-cnt" id="cnt-pendente">0</span></button>
+            <button class="nav-link" data-status="Em Andamento" onclick="trocarTab(this)">🔄 Andamento <span class="badge-cnt" id="cnt-andamento">0</span></button>
+            <button class="nav-link" data-status="Concluída" onclick="trocarTab(this)">✅ Concluída <span class="badge-cnt" id="cnt-concluida">0</span></button>
+            <button class="nav-link" data-status="urgente" onclick="trocarTab(this)">🚨 Urgentes <span class="badge-cnt" id="cnt-urgente">0</span></button>
+        </div>
+
+        <div class="task-list-container">
+            <div class="row" id="task-list">
+                <div class="col-12 text-center p-5 text-muted">
+                    <div class="spinner-border spinner-border-sm me-2" role="status"></div>Carregando tarefas...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile UI Controls -->
+    <button class="fab" onclick="abrirModal()"><i class="bi bi-plus-lg"></i></button>
+    <button class="btn btn-success d-md-none rounded-circle" style="position:fixed;bottom:90px;right:24px;z-index:900;width:45px;height:45px;box-shadow:0 4px 10px rgba(34,197,94,0.3);" onclick="exportarExcel()">
+        <i class="bi bi-file-earmark-excel"></i>
+    </button>
+
+    <!-- Bootstrap Modal for Task -->
+    <div class="modal fade" id="taskModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content custom-dark">
+                <div class="modal-header border-secondary">
+                    <h5 class="modal-title fw-bold" id="modal-title">Nova Tarefa</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label text-muted small fw-semibold">Título *</label>
+                        <input type="text" class="form-control form-control-lg bg-dark text-white border-secondary" id="input-titulo" placeholder="O que precisa ser feito?">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label text-muted small fw-semibold">Descrição</label>
+                        <textarea class="form-control bg-dark text-white border-secondary" id="input-desc" rows="3" placeholder="Contexto, passos a seguir..."></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-muted small fw-semibold">Prioridade</label>
+                        <div class="prio-picker">
+                            <div class="prio-opt" data-p="Urgente" onclick="selPrio(this)">🚨<br>Urgente</div>
+                            <div class="prio-opt" data-p="Alta" onclick="selPrio(this)">🔴<br>Alta</div>
+                            <div class="prio-opt selected" data-p="Normal" onclick="selPrio(this)">🔵<br>Normal</div>
+                            <div class="prio-opt" data-p="Baixa" onclick="selPrio(this)">⚪<br>Baixa</div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-6 mb-3">
+                            <label class="form-label text-muted small fw-semibold">📅 Prazo</label>
+                            <input type="date" class="form-control bg-dark text-white border-secondary" id="input-prazo">
+                        </div>
+                        <div class="col-6 mb-3">
+                            <label class="form-label text-muted small fw-semibold">👤 Atribuir</label>
+                            <select class="form-select bg-dark text-white border-secondary" id="input-atribuido">
+                                <option value="">Ninguém</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <input type="hidden" id="edit-id">
+                    <input type="hidden" id="edit-status" value="Pendente">
+                </div>
+                <div class="modal-footer border-secondary">
+                    <button type="button" class="btn text-white w-100 fw-bold py-2" style="background:var(--gold,#d4af37);color:#000!important;" id="btn-salvar" onclick="salvar()">Salvar Tarefa</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="sidebar.js"></script>
+    <script>
+        const user = JSON.parse(sessionStorage.getItem('usuarioLogado') || 'null');
+        if (!user || !user.username) { location.href = 'login.html'; }
+
+        let todasTarefas = [];
+        let tabAtual = 'todos';
+        let priSelecionada = 'Normal';
+        const taskModal = new bootstrap.Modal(document.getElementById('taskModal'));
+
+        function selPrio(el) {
+            document.querySelectorAll('.prio-opt').forEach(o => o.classList.remove('selected'));
+            el.classList.add('selected');
+            priSelecionada = el.dataset.p;
+        }
+
+        function showToast(msg, type='success') {
+            const container = document.getElementById('toastContainer');
+            const icon = type === 'success' ? '<i class="bi bi-check-circle-fill text-success"></i>' : '<i class="bi bi-exclamation-triangle-fill text-danger"></i>';
+            const toastHtml = `
+                <div class="toast align-items-center text-bg-dark border-0 mb-2 show" role="alert" aria-live="assertive" aria-atomic="true">
+                    <div class="d-flex px-1">
+                        <div class="toast-body d-flex align-items-center gap-2" style="font-weight:500;">
+                            ${icon} ${msg}
+                        </div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                    </div>
+                </div>
+            `;
+            container.insertAdjacentHTML('beforeend', toastHtml);
+            const tb = container.lastElementChild;
+            setTimeout(() => { tb.classList.remove('show'); setTimeout(()=>tb.remove(), 300); }, 3000);
+        }
+
+        function prazoStr(prazo) {
+            if (!prazo) return '';
+            const dias = Math.ceil((new Date(prazo) - new Date()) / 86400000);
+            if (dias < 0) return `<span class="prazo-urgente"><i class="bi bi-exclamation-circle-fill"></i> Venceu há ${-dias}d</span>`;
+            if (dias === 0) return `<span class="prazo-urgente"><i class="bi bi-clock-fill"></i> Vence hoje!</span>`;
+            if (dias <= 2) return `<span class="prazo-urgente">⏰ ${dias}d</span>`;
+            return `<span><i class="bi bi-calendar-event"></i> ${new Date(prazo + 'T12:00:00').toLocaleDateString('pt-BR')}</span>`;
+        }
+
+        const PRIO_ICON = { Urgente:'🚨', Alta:'🔴', Normal:'🔵', Baixa:'⚪' };
+
+        function renderLista(data) {
+            const lista = document.getElementById('task-list');
+            if (!data.length) {
+                lista.innerHTML = `<div class="col-12 text-center p-5 text-muted"><i class="bi bi-ui-checks fs-1 d-block mb-2 opacity-50"></i><h5 class="fw-bold mb-1">Tudo limpo!</h5><p class="small">Nenhuma tarefa encontrada nesta seção.</p></div>`;
+                return;
+            }
+            
+            lista.innerHTML = data.map(t => {
+                const isDone = t.status === 'Concluída';
+                const pCls = t.prioridade || 'Normal';
+                const inProgress = t.status === 'Em Andamento';
+                
+                return `
+                <div class="col-12 col-md-6 col-lg-4 col-xl-3 d-flex align-items-stretch">
+                    <div class="card bg-dark text-white border-secondary w-100 task-card prio-${pCls} ${isDone ? 'done' : ''}">
+                        <div class="card-body p-3">
+                            <div class="d-flex align-items-start gap-2 mb-2">
+                                <div class="task-check mt-1" onclick="toggleDone(${t.id}, ${isDone})"></div>
+                                <div class="flex-grow-1">
+                                    <div class="task-title mb-1">${t.titulo}</div>
+                                    <span class="prio-bdg ${pCls}">${PRIO_ICON[pCls] || ''} ${pCls}</span>
+                                </div>
+                            </div>
+                            
+                            ${t.descricao ? `<div class="task-desc px-1 mb-2"> <i class="bi bi-text-paragraph text-muted me-1"></i> ${t.descricao}</div>` : ''}
+                            
+                            <div class="task-meta px-1">
+                                ${t.atribuido_para ? `<span><i class="bi bi-person-fill"></i> ${t.atribuido_para}</span>` : ''}
+                                ${t.prazo ? prazoStr(t.prazo) : ''}
+                                <span><i class="bi bi-pencil-square"></i> por ${t.criado_por}</span>
+                                ${inProgress ? `<span class="text-primary fw-bold"><i class="bi bi-arrow-repeat"></i> Em andamento</span>` : ''}
+                            </div>
+                        </div>
+                        
+                        <div class="card-footer-actions">
+                            ${!isDone && !inProgress ? `<button class="btn-action text-warning" onclick="mudarStatus(${t.id},'Em Andamento')"><i class="bi bi-play-fill"></i> Iniciar</button>` : ''}
+                            ${inProgress ? `<button class="btn-action text-success" onclick="mudarStatus(${t.id},'Concluída')"><i class="bi bi-check-lg"></i> Concluir</button>` : ''}
+                            ${isDone ? `<button class="btn-action text-warning" onclick="mudarStatus(${t.id},'Pendente')"><i class="bi bi-arrow-counterclockwise"></i> Reabrir</button>` : ''}
+                            
+                            <button class="btn-action" onclick="editarTarefa(${t.id})"><i class="bi bi-pencil"></i></button>
+                            <button class="btn-action text-danger" onclick="excluir(${t.id})"><i class="bi bi-trash3"></i></button>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function atualizarContadores() {
+            document.getElementById('cnt-todos').textContent = todasTarefas.length;
+            document.getElementById('cnt-pendente').textContent = todasTarefas.filter(t => t.status === 'Pendente').length;
+            document.getElementById('cnt-andamento').textContent = todasTarefas.filter(t => t.status === 'Em Andamento').length;
+            document.getElementById('cnt-concluida').textContent = todasTarefas.filter(t => t.status === 'Concluída').length;
+            document.getElementById('cnt-urgente').textContent = todasTarefas.filter(t => t.prioridade === 'Urgente' && t.status !== 'Concluída').length;
+        }
+
+        function aplicarFiltro() {
+            if (tabAtual === 'todos') return renderLista(todasTarefas);
+            if (tabAtual === 'urgente') return renderLista(todasTarefas.filter(t => t.prioridade === 'Urgente' && t.status !== 'Concluída'));
+            renderLista(todasTarefas.filter(t => t.status === tabAtual));
+        }
+
+        function trocarTab(el) {
+            document.querySelectorAll('.nav-tabs-custom .nav-link').forEach(t => t.classList.remove('active'));
+            el.classList.add('active');
+            tabAtual = el.dataset.status;
+            aplicarFiltro();
+        }
+
+        async function carregar() {
+            try {
+                const r = await fetch('/api/tarefas', { headers: { 'x-username': user.username } });
+                todasTarefas = await r.json();
+                atualizarContadores();
+                aplicarFiltro();
+            } catch(e) { showToast('Erro ao carregar', 'error'); }
+        }
+
+        async function mudarStatus(id, novoStatus) {
+            const t = todasTarefas.find(x => x.id === id);
+            if (!t) return;
+            await fetch(`/api/tarefas/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'x-username': user.username },
+                body: JSON.stringify({ ...t, status: novoStatus })
+            });
+            showToast(novoStatus === 'Concluída' ? 'Tarefa concluída!' : 'Status mudou!');
+            carregar();
+        }
+
+        function toggleDone(id, jaConcluida) { mudarStatus(id, jaConcluida ? 'Pendente' : 'Concluída'); }
+
+        function abrirModal(id = null) {
+            document.getElementById('input-titulo').value = '';
+            document.getElementById('input-desc').value = '';
+            document.getElementById('input-prazo').value = '';
+            document.getElementById('input-atribuido').value = '';
+            document.getElementById('edit-id').value = '';
+            document.getElementById('edit-status').value = 'Pendente';
+            
+            selPrio(document.querySelector('.prio-opt[data-p="Normal"]'));
+            document.getElementById('modal-title').innerHTML = '<i class="bi bi-plus-lg text-secondary pe-2"></i>Nova Tarefa';
+
+            if (id) {
+                const t = todasTarefas.find(x => x.id === id);
+                if (!t) return;
+                document.getElementById('modal-title').innerHTML = '<i class="bi bi-pencil mt-1 text-secondary pe-2"></i>Editar Tarefa';
+                document.getElementById('edit-id').value = t.id;
+                document.getElementById('edit-status').value = t.status;
+                document.getElementById('input-titulo').value = t.titulo;
+                document.getElementById('input-desc').value = t.descricao || '';
+                document.getElementById('input-prazo').value = t.prazo || '';
+                document.getElementById('input-atribuido').value = t.atribuido_para || '';
+                if(t.prioridade) selPrio(document.querySelector(`.prio-opt[data-p="${t.prioridade}"]`));
+            }
+            taskModal.show();
+            setTimeout(() => document.getElementById('input-titulo').focus(), 500);
+        }
+
+        function editarTarefa(id) { abrirModal(id); }
+
+        async function salvar() {
+            const titulo = document.getElementById('input-titulo').value.trim();
+            if (!titulo) { showToast('Título obrigatório', 'error'); document.getElementById('input-titulo').focus(); return; }
+            
+            const btn = document.getElementById('btn-salvar');
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Salvando...';
+            btn.disabled = true;
+
+            const id = document.getElementById('edit-id').value;
+            const body = {
+                titulo, descricao: document.getElementById('input-desc').value.trim(),
+                prioridade: priSelecionada, prazo: document.getElementById('input-prazo').value,
+                atribuido_para: document.getElementById('input-atribuido').value,
+                status: document.getElementById('edit-status').value || 'Pendente'
+            };
+            
+            try {
+                const r = await fetch(id ? `/api/tarefas/${id}` : '/api/tarefas', {
+                    method: id ? 'PUT' : 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-username': user.username },
+                    body: JSON.stringify(body)
+                });
+                const d = await r.json();
+                if (d.erro) throw new Error(d.erro);
+                showToast(id ? 'Tarefa atualizada!' : 'Tarefa criada!');
+                taskModal.hide();
+                carregar();
+            } catch(err) { showToast(err.message || 'Erro', 'error'); }
+            finally {
+                btn.innerHTML = 'Salvar Tarefa';
+                btn.disabled = false;
+            }
+        }
+
+        async function excluir(id) {
+            if (!confirm('Excluir esta tarefa para sempre?')) return;
+            await fetch(`/api/tarefas/${id}`, { method: 'DELETE', headers: { 'x-username': user.username } });
+            showToast('Tarefa removida!');
+            carregar();
+        }
+
+        document.getElementById('input-titulo').addEventListener('keydown', e => { if (e.key === 'Enter') salvar(); });
+
+        fetch('/api/usuarios/lista').then(r => r.json()).then(lista => {
+            const sel = document.getElementById('input-atribuido');
+            lista.forEach(u => sel.innerHTML += `<option value="${u}">${u}</option>`);
+        }).catch(() => {});
+
+        function exportarExcel() {
+            if (!todasTarefas || !todasTarefas.length) return alert('Sem tarefas para exportar.');
+            
+            let filtrados = todasTarefas;
+            if (tabAtual === 'urgente') filtrados = todasTarefas.filter(t => t.prioridade === 'Urgente' && t.status !== 'Concluída');
+            else if (tabAtual !== 'todos') filtrados = todasTarefas.filter(t => t.status === tabAtual);
+            
+            if (!filtrados.length) return alert('Nenhuma tarefa nesta visão para exportar.');
+
+            const cabecalho = ['ID', 'Título', 'Descrição', 'Status', 'Prioridade', 'Prazo', 'Atribuído Para', 'Criado Por', 'Data Criação'];
+            const linhas = filtrados.map(t => [
+                t.id, t.titulo, t.descricao || '', t.status, t.prioridade,
+                t.prazo ? t.prazo.split('-').reverse().join('/') : '',
+                t.atribuido_para || 'Ninguém', t.criado_por || '',
+                t.data_criacao ? new Date(t.data_criacao).toLocaleString('pt-BR') : ''
+            ]);
+            exportToExcel('tarefas', cabecalho, linhas);
+        }
+
+        buildSidebar('tarefas.html');
+        carregar();
+    </script>
+</body>
+</html>

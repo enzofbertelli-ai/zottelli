@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Despachante | Zottelli Selection</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="style.css" rel="stylesheet">
+    <script>
+        const _u = JSON.parse(sessionStorage.getItem('usuarioLogado') || 'null');
+        if (!_u) window.location.href = '/login.html';
+        function sair() { sessionStorage.removeItem('usuarioLogado'); window.location.href = '/login.html'; }
+    </script>
+    <style>
+        .desp-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; margin-bottom: 12px; transition: border-color 0.2s; }
+        .desp-card:hover { border-color: var(--accent); }
+        .desp-card.status-concluso   { border-left: 4px solid var(--success) !important; }
+        .desp-card.status-concluindo { border-left: 4px solid var(--info) !important; }
+        .desp-card.status-pendente   { border-left: 4px solid var(--danger) !important; }
+        .desp-card.arquivado-card    { border-left: 4px solid var(--muted) !important; opacity:.7; }
+
+        .desp-field { display:flex; flex-direction:column; gap:2px; }
+        .desp-field label { font-size:0.72rem; text-transform:uppercase; letter-spacing:0.5px; color:var(--muted); }
+        .desp-value { font-size:0.87rem; font-weight:500; color:var(--text); }
+
+        .badge-desp { display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:20px; font-size:0.75rem; font-weight:600; }
+        .badge-concluso   { background:rgba(63,185,80,0.12);  color:var(--success); border:1px solid rgba(63,185,80,0.3); }
+        .badge-concluindo { background:rgba(121,192,255,0.12); color:var(--info);    border:1px solid rgba(121,192,255,0.3); }
+        .badge-pendente   { background:rgba(248,81,73,0.12);   color:var(--danger);  border:1px solid rgba(248,81,73,0.3); }
+
+        .vistoria-ok  { color:var(--success); }
+        .vistoria-exp { color:var(--warning); }
+        .vistoria-no  { color:var(--muted); }
+
+        .filter-bar { display:flex; gap:8px; flex-wrap:wrap; }
+        .filter-btn { padding:5px 14px; border-radius:20px; border:1px solid var(--border); background:transparent; color:var(--muted); font-size:0.8rem; cursor:pointer; transition:all 0.15s; }
+        .filter-btn.active { border-color:var(--accent); color:var(--accent); background:rgba(88,166,255,0.1); }
+
+        .stat-pill { padding: 4px 14px; border-radius: 20px; font-size: 0.78rem; font-weight: 600; }
+        .drive-link { font-size:0.8rem; color:var(--accent); text-decoration:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:200px; display:inline-block; }
+        .drive-link:hover { text-decoration:underline; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <a href="index.html" class="brand-logo">ZOTTELLI<span>.</span></a>
+        <ul class="nav flex-column mt-2" id="sidebarNav"></ul>
+    </div>
+
+    <div class="main-content">
+        <!-- Header -->
+        <div class="section-header mb-3">
+            <div>
+                <h3 class="section-title"><i class="bi bi-file-earmark-check me-2"></i>Módulo Despachante</h3>
+                <p class="section-subtitle">Acompanhamento da documentação de cada veículo</p>
+            </div>
+        </div>
+
+        <!-- Estatísticas rápidas -->
+        <div class="row g-3 mb-4" id="statsRow">
+            <div class="col-auto"><div class="card p-3 d-flex flex-row align-items-center gap-3"><span class="stat-pill badge-concluso" id="statConclusosN">0</span><small class="text-muted">Conclusos</small></div></div>
+            <div class="col-auto"><div class="card p-3 d-flex flex-row align-items-center gap-3"><span class="stat-pill badge-concluindo" id="statConcluindoN">0</span><small class="text-muted">Concluindo</small></div></div>
+            <div class="col-auto"><div class="card p-3 d-flex flex-row align-items-center gap-3"><span class="stat-pill badge-pendente" id="statPendentesN">0</span><small class="text-muted">Pendentes</small></div></div>
+        </div>
+
+        <!-- Filtros -->
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div class="filter-bar" id="filterBar">
+                <button class="filter-btn active" data-filter="Todos" onclick="aplicarFiltro('Todos', this)">Todos</button>
+                <button class="filter-btn" data-filter="Pendente" onclick="aplicarFiltro('Pendente', this)">🔴 Pendentes</button>
+                <button class="filter-btn" data-filter="Concluindo" onclick="aplicarFiltro('Concluindo', this)">🔵 Concluindo</button>
+                <button class="filter-btn" data-filter="Concluso" onclick="aplicarFiltro('Concluso', this)">🟢 Conclusos</button>
+            </div>
+            <button class="btn btn-sm btn-outline-secondary" id="btnArquivados" onclick="toggleArquivados()">
+                <i class="bi bi-archive me-1"></i>Ver Arquivados
+            </button>
+        </div>
+
+        <!-- Lista de veículos -->
+        <div id="listaDespachante"></div>
+    </div>
+
+    <!-- Modal de edição -->
+    <div class="modal fade" id="modalDesp" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header border-0 pb-0">
+                    <div>
+                        <h5 class="modal-title mb-0" id="modalDespTitulo">Editar Despachante</h5>
+                        <small class="text-muted" id="modalDespSub"></small>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="dFrotaId">
+                    <div class="row g-3">
+                        <!-- Google Drive Link -->
+                        <div class="col-12">
+                            <div class="card p-3">
+                                <label class="form-label fw-bold" style="color:#4285f4;"><i class="bi bi-google me-1"></i>Link da Pasta (Google Drive)</label>
+                                <input type="url" class="form-control" id="dDriveLink" placeholder="https://drive.google.com/drive/folders/...">
+                            </div>
+                        </div>
+                        <!-- Vistoria -->
+                        <div class="col-md-6">
+                            <div class="card p-3">
+                                <label class="form-label fw-bold text-info"><i class="bi bi-eye me-1"></i>Vistoria</label>
+                                <label class="form-label">Data da Vistoria</label>
+                                <input type="date" class="form-control" id="dVistData">
+                                <small class="text-muted mt-1" id="vistoriaValidade"></small>
+                            </div>
+                        </div>
+                        <!-- DUT -->
+                        <div class="col-md-6">
+                            <div class="card p-3">
+                                <label class="form-label fw-bold text-warning"><i class="bi bi-file-earmark me-1"></i>DUT</label>
+                                <label class="form-label">DUT</label>
+                                <select class="form-select mb-2" id="dDut">
+                                    <option value="Não">Não</option>
+                                    <option value="Físico">Físico</option>
+                                    <option value="Digital">Digital</option>
+                                </select>
+                                <label class="form-label">DUT Assinado</label>
+                                <select class="form-select" id="dDutAssinado">
+                                    <option value="Não">Não</option>
+                                    <option value="Físico">Físico</option>
+                                    <option value="Digital">Digital</option>
+                                </select>
+                            </div>
+                        </div>
+                        <!-- Status e NF -->
+                        <div class="col-md-6">
+                            <div class="card p-3">
+                                <label class="form-label fw-bold" style="color:var(--accent);"><i class="bi bi-flag me-1"></i>Status</label>
+                                <select class="form-select" id="dStatus">
+                                    <option value="Pendente">🔴 Pendente</option>
+                                    <option value="Concluindo">🔵 Concluindo</option>
+                                    <option value="Concluso">🟢 Concluso</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card p-3">
+                                <label class="form-label fw-bold text-warning"><i class="bi bi-receipt me-1"></i>Nota Fiscal</label>
+                                <select class="form-select" id="dNf">
+                                    <option value="Pendente">⏳ NF Pendente</option>
+                                    <option value="Anexada">✅ NF Anexada</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="salvarDesp()"><i class="bi bi-floppy me-1"></i>Salvar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="sidebar.js"></script>
+    <script>
+        const usuarioLogado = JSON.parse(sessionStorage.getItem('usuarioLogado') || 'null');
+        const apiHeaders = { 'Content-Type': 'application/json', 'x-username': usuarioLogado?.username || '' };
+
+        function exportarExcel() {
+            if (!despData || !despData.length) return alert('Sem dados de despachante para exportar.');
+            
+            const filtrados = filtroAtivo === 'Todos' ? despData : despData.filter(d => d.status === filtroAtivo);
+            const dadosFinais = verArquivados ? filtrados.filter(d => d.arquivado === 1) : filtrados.filter(d => !d.arquivado);
+            
+            if (!dadosFinais.length) return alert('Nenhum dado nesta visão para exportar.');
+
+            const cabecalho = ['Carro', 'Placa', 'Ano', 'Status Despachante', 'Vistoria Data', 'DUT', 'DUT Assinado', 'Nota Fiscal', 'Link Google Drive'];
+            const linhas = dadosFinais.map(d => [
+                d.modelo, d.placa, d.ano, d.status,
+                d.vistoriado_data ? d.vistoriado_data.split('-').reverse().join('/') : 'Não',
+                d.dut || 'Não', d.dut_assinado || 'Não', d.nf || 'Pendente',
+                d.google_drive_link || ''
+            ]);
+            exportToExcel('controle_despachante', cabecalho, linhas);
+        }
+
+        buildSidebar('despachante.html');
+
+        let despData = [];
+        let filtroAtivo = 'Todos';
+        let verArquivados = false;
+
+        async function carregar() {
+            const url = verArquivados ? '/api/despachante?arquivados=1' : '/api/despachante';
+            const res = await fetch(url, { headers: apiHeaders });
+            despData = await res.json();
+            atualizarStats();
+            renderizar();
+        }
+
+        function atualizarStats() {
+            document.getElementById('statConclusosN').textContent  = despData.filter(d => d.status === 'Concluso').length;
+            document.getElementById('statConcluindoN').textContent = despData.filter(d => d.status === 'Concluindo').length;
+            document.getElementById('statPendentesN').textContent  = despData.filter(d => d.status === 'Pendente').length;
+        }
+
+        function aplicarFiltro(tipo, btn) {
+            filtroAtivo = tipo;
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            renderizar();
+        }
+
+        function toggleArquivados() {
+            verArquivados = !verArquivados;
+            const btn = document.getElementById('btnArquivados');
+            btn.innerHTML = verArquivados
+                ? '<i class="bi bi-arrow-left me-1"></i>Ver Ativos'
+                : '<i class="bi bi-archive me-1"></i>Ver Arquivados';
+            btn.className = verArquivados ? 'btn btn-sm btn-warning' : 'btn btn-sm btn-outline-secondary';
+            carregar();
+        }
+
+        function getFmtDate(dateStr) {
+            if (!dateStr) return '—';
+            return dateStr.split('-').reverse().join('/');
+        }
+
+        function getVistoriaInfo(data) {
+            if (!data) return { icon: 'bi-dash-circle', cls: 'vistoria-no', text: 'Não vistoriado' };
+            const d = new Date(data + 'T12:00:00Z');
+            const validade = new Date(d);
+            validade.setDate(validade.getDate() + 30);
+            const hoje = new Date();
+            const diffDias = Math.floor((validade - hoje) / (1000 * 60 * 60 * 24));
+            if (diffDias < 0) return { icon: 'bi-x-circle-fill', cls: 'vistoria-exp', text: `Vencida há ${Math.abs(diffDias)} dias` };
+            if (diffDias <= 5) return { icon: 'bi-exclamation-circle-fill', cls: 'vistoria-exp', text: `Vence em ${diffDias} dias` };
+            return { icon: 'bi-check-circle-fill', cls: 'vistoria-ok', text: `Válida até ${getFmtDate(validade.toISOString().split('T')[0])}` };
+        }
+
+        function renderizar() {
+            const lista = document.getElementById('listaDespachante');
+            const filtrados = filtroAtivo === 'Todos' ? despData : despData.filter(d => d.status === filtroAtivo);
+
+            if (filtrados.length === 0) {
+                lista.innerHTML = '<p class="text-muted text-center py-5 fs-6">Nenhum veículo encontrado.</p>';
+                return;
+            }
+
+            lista.innerHTML = filtrados.map(d => {
+                const cls = d.status.toLowerCase().replace(/ /g, '');
+                let badgeCls = 'badge-pendente', badgeIcon = '🔴';
+                if (d.status === 'Concluso')   { badgeCls = 'badge-concluso';   badgeIcon = '🟢'; }
+                if (d.status === 'Concluindo') { badgeCls = 'badge-concluindo'; badgeIcon = '🔵'; }
+                const vst = getVistoriaInfo(d.vistoriado_data);
+                const driveHtml = d.google_drive_link
+                    ? `<a href="${d.google_drive_link}" target="_blank" class="drive-link" title="${d.google_drive_link}"><i class="bi bi-google me-1" style="color:#4285f4;"></i>Drive</a>`
+                    : `<span class="text-muted" style="font-size:0.8rem;">—</span>`;
+
+                const arquivarLabel = verArquivados ? 'Desarquivar' : 'Arquivar';
+                const arquivarIcon = verArquivados ? 'bi-box-arrow-up' : 'bi-archive';
+                const arquivarArg = verArquivados ? 0 : 1;
+
+                return `
+                <div class="desp-card status-${cls}${verArquivados ? ' arquivado-card' : ''}">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div>
+                            <strong class="text-white fs-6">${d.modelo}</strong>
+                            <small class="text-muted ms-2">${d.placa} · ${d.ano}</small>
+                        </div>
+                        <div class="d-flex gap-2 align-items-center flex-wrap">
+                            <span class="badge-desp ${badgeCls}">${badgeIcon} ${d.status}</span>
+                            <span class="badge-desp ${d.nf === 'Anexada' ? 'badge-concluso' : 'badge-pendente'}">
+                                ${d.nf === 'Anexada' ? '📎 NF Anexada' : '⏳ NF Pendente'}
+                            </span>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="abrirDesp(${d.frota_id})" title="Editar"><i class="bi bi-pencil"></i></button>
+                            <button class="btn btn-sm btn-outline-warning" onclick="arquivarDesp(${d.frota_id}, ${arquivarArg})" title="${arquivarLabel}"><i class="bi ${arquivarIcon}"></i></button>
+                        </div>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-sm-3">
+                            <div class="desp-field">
+                                <label>Vistoria</label>
+                                <div class="desp-value ${vst.cls}"><i class="bi ${vst.icon} me-1"></i>${getFmtDate(d.vistoriado_data)}</div>
+                                <small class="${vst.cls}" style="font-size:0.72rem;">${vst.text}</small>
+                            </div>
+                        </div>
+                        <div class="col-sm-3">
+                            <div class="desp-field">
+                                <label>DUT</label>
+                                <div class="desp-value">${d.dut || 'Não'}</div>
+                            </div>
+                        </div>
+                        <div class="col-sm-3">
+                            <div class="desp-field">
+                                <label>DUT Assinado</label>
+                                <div class="desp-value">${d.dut_assinado || 'Não'}</div>
+                            </div>
+                        </div>
+                        <div class="col-sm-3">
+                            <div class="desp-field">
+                                <label>Documentos</label>
+                                <div class="desp-value">${driveHtml}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        async function arquivarDesp(frotaId, arquivado) {
+            await fetch(`/api/despachante/${frotaId}/arquivar`, { method: 'PUT', headers: apiHeaders, body: JSON.stringify({ arquivado }) });
+            carregar();
+        }
+
+        function abrirDesp(frotaId) {
+            const d = despData.find(x => x.frota_id === frotaId);
+            if (!d) return;
+            document.getElementById('dFrotaId').value = frotaId;
+            document.getElementById('modalDespTitulo').textContent = d.modelo;
+            document.getElementById('modalDespSub').textContent = `${d.placa} · ${d.ano}`;
+            document.getElementById('dVistData').value = d.vistoriado_data || '';
+            document.getElementById('dDut').value = d.dut || 'Não';
+            document.getElementById('dDutAssinado').value = d.dut_assinado || 'Não';
+            document.getElementById('dStatus').value = d.status || 'Pendente';
+            document.getElementById('dNf').value = d.nf || 'Pendente';
+            document.getElementById('dDriveLink').value = d.google_drive_link || '';
+            atualizarValidadeVistoria();
+            new bootstrap.Modal(document.getElementById('modalDesp')).show();
+        }
+
+        function atualizarValidadeVistoria() {
+            const data = document.getElementById('dVistData').value;
+            const el = document.getElementById('vistoriaValidade');
+            if (!data) { el.textContent = ''; return; }
+            const d = new Date(data + 'T12:00:00Z');
+            const validade = new Date(d);
+            validade.setDate(validade.getDate() + 30);
+            el.textContent = `Validade: ${validade.toLocaleDateString('pt-BR')}`;
+        }
+        document.getElementById('dVistData').addEventListener('change', atualizarValidadeVistoria);
+
+        async function salvarDesp() {
+            const frotaId = document.getElementById('dFrotaId').value;
+            const body = {
+                vistoriado_data: document.getElementById('dVistData').value || null,
+                dut: document.getElementById('dDut').value,
+                dut_assinado: document.getElementById('dDutAssinado').value,
+                status: document.getElementById('dStatus').value,
+                nf: document.getElementById('dNf').value,
+                google_drive_link: document.getElementById('dDriveLink').value.trim() || null,
+            };
+            await fetch(`/api/despachante/${frotaId}`, { method: 'PUT', headers: apiHeaders, body: JSON.stringify(body) });
+            bootstrap.Modal.getInstance(document.getElementById('modalDesp')).hide();
+            carregar();
+        }
+
+        window.onload = carregar;
+    </script>
+
+    <!-- Botao export Excel -->
+
+    <div id="excel-btn-float" style="position:fixed;bottom:22px;right:22px;z-index:500">
+      <button onclick="exportarExcel()" style="background:rgba(22,22,22,.95);border:1px solid #22c55e;color:#22c55e;padding:9px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 2px 12px rgba(34,197,94,.2)">
+        <span style="font-size:16px">↓</span> Excel
+      </button>
+    </div>
+</body>
+</html>

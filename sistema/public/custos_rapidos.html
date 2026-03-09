@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custos Rápidos | Zottelli</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <script>
+        const _u = JSON.parse(sessionStorage.getItem('usuarioLogado') || 'null');
+        if (!_u) window.location.href = '/login.html';
+        function sair() { sessionStorage.removeItem('usuarioLogado'); window.location.href = '/login.html'; }
+    </script>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* Mobile-First Customizations keeping Zottelli core styles */
+        .page-title { font-size: 1.25rem; font-weight: 700; margin-bottom: 0.25rem; }
+        .page-title span { color: var(--gold, #d4af37); }
+        .page-subtitle { font-size: 0.85rem; color: var(--muted); }
+        
+        /* Floating form container (Mobile friendly sticky) */
+        .quick-form-card {
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            position: sticky;
+            top: 10px;
+            z-index: 10;
+        }
+
+        /* Large Inputs for finger friendly touch */
+        .form-control-lg { 
+            font-size: 1rem; padding: 0.8rem 1rem; border-radius: 8px; background: var(--bg2); border-color: var(--border);
+        }
+        .form-control-lg:focus { border-color: var(--gold, #d4af37); box-shadow: 0 0 0 3px rgba(212,175,55,0.15); }
+        
+        .valor-input-wrap { position: relative; }
+        .valor-input-wrap .prefix { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--muted); font-weight: 600; }
+        .valor-input { padding-left: 2.5rem; font-size: 1.35rem; font-weight: 700; }
+
+        /* Categories Pills */
+        .cat-pills { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+        .cat-pill {
+            padding: 0.4rem 0.8rem; border-radius: 20px; font-size: 0.75rem; font-weight: 600;
+            border: 1px solid var(--border); background: var(--bg2); color: var(--muted);
+            cursor: pointer; transition: 0.2s; user-select: none;
+        }
+        .cat-pill.selected { border-color: var(--gold, #d4af37); color: var(--gold, #d4af37); background: rgba(212,175,55,0.08); }
+
+        .btn-lancar {
+            background-color: var(--gold, #d4af37); color: #000; font-weight: 700; padding: 0.8rem; border-radius: 8px; border: none; letter-spacing: 0.5px;
+        }
+        .btn-lancar:hover { background-color: var(--gold-dark, #b8941e); }
+
+        /* List Items */
+        .custo-item { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; display: flex; align-items: center; gap: 12px; }
+        .cat-icon { width: 36px; height: 36px; background: var(--bg); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; flex-shrink: 0; }
+        .info { flex: 1; min-width: 0; }
+        .desc { font-weight: 600; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
+        .meta { font-size: 0.7rem; color: var(--muted); margin-top: 2px; }
+        .valor { font-weight: 700; color: var(--danger); font-size: 1rem; margin-right: 8px; }
+        .del-btn { background: none; border: none; color: var(--muted); font-size: 1.1rem; padding: 4px; border-radius: 4px; transition: 0.2s; cursor: pointer; position: relative; z-index: 5; }
+        .del-btn:hover { color: var(--danger); background: rgba(248,81,73,0.1); transform: scale(1.1); }
+
+        .day-summary { background: linear-gradient(135deg, rgba(212,175,55,0.1), rgba(212,175,55,0.02)); border: 1px solid rgba(212,175,55,0.2); border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+        
+        .toast-custom { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 16px; z-index: 1050; display: none; align-items: center; gap: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        .toast-custom.show { display: flex; }
+        .toast-custom.success { border-color: var(--success); }
+        .toast-custom.error { border-color: var(--danger); }
+
+        @media (max-width: 768px) {
+            .sidebar { display: none !important; }
+            .main-content { padding: 16px 14px; margin-left: 0; max-height: none; overflow-y: visible; }
+            .col-form { padding-bottom: 1rem; }
+        }
+        @media (min-width: 768px) {
+            .quick-form-card { position: static; box-shadow: 0 4px 20px rgba(0,0,0,0.5); border: 1px solid var(--border); background-color: var(--bg2) !important; padding: 1.5rem !important; }
+            .form-grid { max-width: 1000px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <a href="index.html" class="brand-logo">ZOTTELLI<span style="color:var(--gold,#d4af37);">.</span></a>
+        <ul class="nav flex-column mt-2" id="sidebarNav"></ul>
+    </div>
+
+    <div class="main-content">
+        <div class="form-grid row">
+            
+            <!-- FORMULÁRIO COL -->
+            <div class="col-12 col-md-6 col-lg-5 col-form">
+                <div class="mb-3">
+                    <h1 class="page-title"><i class="bi bi-lightning-charge me-1"></i>Custos <span>Rápidos</span></h1>
+                    <p class="page-subtitle">Anote gastos no campo. Rápido e simples.</p>
+                </div>
+
+                <div class="quick-form-card card p-4 bg-dark mb-4">
+                    <h5 class="text-white mb-3" style="font-size: 0.95rem;"><i class="bi bi-rocket-takeoff flex-shrink-0" style="color:var(--gold,#d4af37)"></i> Lançamento</h5>
+
+                    <input type="text" class="form-control form-control-lg mb-2" id="input-desc" placeholder="O que foi gasto?">
+
+                    <div class="valor-input-wrap mb-2">
+                        <span class="prefix">R$</span>
+                        <input type="number" class="form-control form-control-lg valor-input" id="input-valor" placeholder="0,00" step="0.01" min="0" inputmode="decimal">
+                    </div>
+
+                    <div class="cat-pills" id="cat-pills">
+                        <div class="cat-pill selected" data-cat="Geral" onclick="selCat(this)">🧾 Geral</div>
+                        <div class="cat-pill" data-cat="Combustível" onclick="selCat(this)">⛽ Combustível</div>
+                        <div class="cat-pill" data-cat="Peça / Serviço" onclick="selCat(this)">🔧 Peça Serviço</div>
+                        <div class="cat-pill" data-cat="Documentação" onclick="selCat(this)">📄 Documento</div>
+                        <div class="cat-pill" data-cat="Alimentação" onclick="selCat(this)">🍔 Alimentação</div>
+                        <div class="cat-pill" data-cat="Transporte" onclick="selCat(this)">🚛 Transporte</div>
+                        <div class="cat-pill" data-cat="Outros" onclick="selCat(this)">📦 Outros</div>
+                    </div>
+
+                    <div class="input-group mb-3 input-group-sm">
+                        <span class="input-group-text bg-dark border-secondary text-muted"><i class="bi bi-car-front"></i></span>
+                        <input type="text" class="form-control bg-dark border-secondary text-white" id="input-carro" placeholder="Veículo (Opcional)">
+                    </div>
+
+                    <button class="btn btn-lancar w-100" id="btn-lancar" onclick="lancar()">Lançar Custo</button>
+                </div>
+            </div>
+
+            <!-- LISTA COL -->
+            <div class="col-12 col-md-6 col-lg-7">
+                <div class="day-summary d-none" id="day-total">
+                    <span style="font-size:0.8rem;color:var(--muted)">Total lançado hoje</span>
+                    <strong style="font-size:1.25rem;color:var(--gold,#d4af37)" id="total-hoje">R$ 0,00</strong>
+                </div>
+
+                <h6 class="text-uppercase text-muted mb-3" style="font-size:0.75rem;letter-spacing:1px;display:none" id="list-title">Últimos Lançamentos</h6>
+                
+                <div id="lista-custos">
+                    <!-- Cards de custo injetados aqui -->
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="toast-custom" id="toast"></div>
+
+    <!-- Botao export Excel -->
+    <div style="position:fixed;bottom:20px;right:20px;z-index:500;">
+        <button class="btn" style="background-color: var(--bg2); border: 1px solid var(--success); color: var(--success); border-radius: 8px; font-size: 0.8rem; font-weight: 600; padding: 8px 14px; box-shadow: 0 4px 10px rgba(34,197,94,0.15);" onclick="exportarExcel()">
+            <i class="bi bi-file-earmark-excel"></i> Excel
+        </button>
+    </div>
+
+    <!-- BS JS & Globals -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="sidebar.js"></script>
+    <script>
+        const user = JSON.parse(sessionStorage.getItem('usuarioLogado') || 'null');
+        if (!user || !user.username) { location.href = 'login.html'; }
+
+        let catSelecionada = 'Geral';
+        let custos = [];
+
+        const catIcons = {
+            'Geral': '🧾', 'Combustível': '⛽', 'Peça / Serviço': '🔧',
+            'Documentação': '📄', 'Alimentação': '🍔', 'Transporte': '🚛', 'Outros': '📦'
+        };
+
+        function selCat(el) {
+            document.querySelectorAll('.cat-pill').forEach(p => p.classList.remove('selected'));
+            el.classList.add('selected');
+            catSelecionada = el.dataset.cat;
+        }
+
+        function showToast(msg, type='success') {
+            const t = document.getElementById('toast');
+            t.innerHTML = (type === 'success' ? '<i class="bi bi-check-circle-fill text-success"></i> ' : '<i class="bi bi-x-circle-fill text-danger"></i> ') + msg;
+            t.className = `toast-custom show ${type}`;
+            setTimeout(() => t.className = 'toast-custom', 2500);
+        }
+
+        function fmt(v) { return 'R$ ' + Number(v).toLocaleString('pt-BR', {minimumFractionDigits:2}); }
+
+        function renderLista(data) {
+            custos = data;
+            const lista = document.getElementById('lista-custos');
+            const hoje = new Date().toISOString().slice(0, 10);
+            const totalHoje = data.filter(c => c.data_hora && c.data_hora.slice(0, 10) === hoje).reduce((s, c) => s + c.valor, 0);
+
+            if (totalHoje > 0) {
+                document.getElementById('day-total').classList.remove('d-none');
+                document.getElementById('total-hoje').textContent = fmt(totalHoje);
+                document.getElementById('list-title').style.display = 'block';
+            }
+
+            if (!data.length) {
+                lista.innerHTML = '<div class="text-center p-5 text-muted small"><i class="bi bi-inbox fs-1 mb-2 d-block opacity-50"></i>Nenhum custo lançado ainda.</div>';
+                return;
+            }
+
+            lista.innerHTML = data.map(c => {
+                const dt = c.data_hora ? new Date(c.data_hora) : null;
+                const dtStr = dt ? `${dt.toLocaleDateString('pt-BR')} ${dt.toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'})}` : '';
+                return `
+                <div class="custo-item">
+                    <div class="cat-icon">${catIcons[c.categoria] || '🧾'}</div>
+                    <div class="info">
+                        <div class="desc">${c.descricao}</div>
+                        <div class="meta">${c.categoria}${c.carro_ref ? ' · ' + c.carro_ref : ''} · ${dtStr} · ${c.usuario}</div>
+                    </div>
+                    <div class="valor">${fmt(c.valor)}</div>
+                    <button class="del-btn" onclick="excluir(${c.id})"><i class="bi bi-x-lg"></i></button>
+                </div>`;
+            }).join('');
+        }
+
+        async function carregar() {
+            try {
+                const r = await fetch('/api/custos-rapidos', { headers: { 'x-username': user.username } });
+                renderLista(await r.json());
+            } catch(e) { showToast('Erro ao carregar', 'error'); }
+        }
+
+        async function lancar() {
+            const desc = document.getElementById('input-desc').value.trim();
+            const valor = parseFloat(document.getElementById('input-valor').value);
+            const carro = document.getElementById('input-carro').value.trim();
+
+            if (!desc) { document.getElementById('input-desc').focus(); showToast('Informe o que foi gasto', 'error'); return; }
+            if (!valor || valor <= 0) { document.getElementById('input-valor').focus(); showToast('Informe o valor', 'error'); return; }
+
+            const btn = document.getElementById('btn-lancar');
+            btn.disabled = true; btn.textContent = 'Lançando...';
+
+            try {
+                const r = await fetch('/api/custos-rapidos', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-username': user.username },
+                    body: JSON.stringify({ descricao: desc, valor, categoria: catSelecionada, carro_ref: carro })
+                });
+                const d = await r.json();
+                if (d.erro) throw new Error(d.erro);
+                document.getElementById('input-desc').value = '';
+                document.getElementById('input-valor').value = '';
+                document.getElementById('input-carro').value = '';
+                showToast('Custo lançado!');
+                carregar();
+            } catch(err) { showToast(err.message || 'Erro', 'error'); }
+            finally { btn.disabled = false; btn.innerHTML = '<i class="bi bi-check2-all"></i> Lançar Custo'; }
+        }
+
+        async function excluir(id) {
+            if (!confirm('Remover este lançamento?')) return;
+            await fetch(`/api/custos-rapidos/${id}`, { method: 'DELETE', headers: { 'x-username': user.username } });
+            showToast('Removido!');
+            carregar();
+        }
+
+        // Enter bindings
+        document.getElementById('input-desc').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('input-valor').focus(); });
+        document.getElementById('input-valor').addEventListener('keydown', e => { if (e.key === 'Enter') lancar(); });
+
+        carregar();
+        buildSidebar('custos_rapidos.html');
+
+        // Export Central Logic
+        function exportarExcel() {
+            if (!custos.length) return alert('Nenhum custo lançado para exportar.');
+            const cabecalho = ['ID', 'Descrição', 'Categoria', 'Valor (R$)', 'Data / Hora', 'Carro (Ref)', 'Usuário'];
+            const linhas = custos.map(c => [
+                c.id, c.descricao, c.categoria, c.valor, 
+                c.data_hora ? new Date(c.data_hora).toLocaleString('pt-BR') : '',
+                c.carro_ref || '', c.usuario
+            ]);
+            exportToExcel('custos_rapidos', cabecalho, linhas);
+        }
+    </script>
+</body>
+</html>
